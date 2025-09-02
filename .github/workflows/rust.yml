@@ -15,6 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install ALSA development dependencies
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config
+
       - name: Build
         run: cargo build --verbose
 
@@ -30,12 +33,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 
+          fetch-depth: 0  # full git history needed
 
       - name: Check if Cargo.toml version changed
         id: check_version
         run: |
           git fetch origin master
+
           CUR_VER=$(grep '^version =' Cargo.toml | head -n1 | cut -d '"' -f2)
           git show origin/master:Cargo.toml > old_Cargo.toml
           OLD_VER=$(grep '^version =' old_Cargo.toml | head -n1 | cut -d '"' -f2)
@@ -43,7 +47,7 @@ jobs:
           echo "Current version: $CUR_VER"
           echo "Old version: $OLD_VER"
 
-          if [ "$CUR_VER" == "$OLD_VER" ]; then
+          if [ "$CUR_VER" = "$OLD_VER" ]; then
             echo "version_changed=false" >> $GITHUB_OUTPUT
             echo "No version change detected. Skipping release."
           else
@@ -65,8 +69,8 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: "v${{ steps.check_version.outputs.CUR_VER || env.CARGO_PKG_VERSION }}"
-          name: Release v${{ steps.check_version.outputs.CUR_VER || env.CARGO_PKG_VERSION }}
+          tag_name: "v${{ env.CARGO_PKG_VERSION }}"
+          name: Release v${{ env.CARGO_PKG_VERSION }}
           body: ${{ env.RELEASE_BODY }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
