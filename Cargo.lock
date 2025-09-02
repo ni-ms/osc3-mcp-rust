@@ -1847,7 +1847,7 @@ dependencies = [
 
 [[package]]
 name = "osc3-mcp-rust"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "nih_plug",
  "nih_plug_egui",
