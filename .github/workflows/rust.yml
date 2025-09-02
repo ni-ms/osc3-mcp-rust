@@ -84,5 +84,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: target/bundled/SineSynth.clap
-          asset_name: SineSynth.clap
+          asset_name: osc3-mcp-rust.clap
           asset_content_type: application/octet-stream
