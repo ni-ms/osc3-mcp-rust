@@ -9,7 +9,6 @@ pub struct SineSynth {
     params: Arc<SineParams>,
     phase: f32,
     sample_rate: f32,
-
     current_note: Option<u8>,
     current_freq: f32,
     gate: bool,
@@ -25,10 +24,6 @@ struct SineParams {
 
     #[id = "gain"]
     gain: FloatParam,
-
-    // Optional: audible idle test tone level (set to 0.0 to disable)
-    #[id = "idle_db"]
-    idle_db: FloatParam,
 }
 
 impl Default for SineSynth {
@@ -48,7 +43,7 @@ impl Default for SineSynth {
 impl Default for SineParams {
     fn default() -> Self {
         Self {
-            editor_state: EguiState::from_size(300, 200),
+            editor_state: EguiState::from_size(700, 250),
             frequency: FloatParam::new(
                 "Frequency",
                 440.0,
@@ -58,10 +53,10 @@ impl Default for SineParams {
                     factor: 0.5,
                 },
             )
-                .with_smoother(SmoothingStyle::Logarithmic(50.0))
-                .with_unit(" Hz")
-                .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
-                .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+            .with_smoother(SmoothingStyle::Logarithmic(50.0))
+            .with_unit(" Hz")
+            .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
+            .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
             gain: FloatParam::new(
                 "Gain",
                 util::db_to_gain(-6.0),
@@ -70,21 +65,10 @@ impl Default for SineParams {
                     max: util::db_to_gain(0.0),
                 },
             )
-                .with_smoother(SmoothingStyle::Logarithmic(50.0))
-                .with_unit(" dB")
-                .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
-                .with_string_to_value(formatters::s2v_f32_gain_to_db()),
-            idle_db: FloatParam::new(
-                "Idle Tone",
-                util::db_to_gain(-60.0), // -inf..-40 dB range, default -60 dB (very quiet)
-                FloatRange::Linear {
-                    min: 0.0,
-                    max: util::db_to_gain(-40.0),
-                },
-            )
-                .with_unit(" dB")
-                .with_value_to_string(formatters::v2s_f32_gain_to_db(1))
-                .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+            .with_smoother(SmoothingStyle::Logarithmic(50.0))
+            .with_unit(" dB")
+            .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
+            .with_string_to_value(formatters::s2v_f32_gain_to_db()),
         }
     }
 }
@@ -96,7 +80,6 @@ impl Plugin for SineSynth {
     const EMAIL: &'static str = "your@email.com";
     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-    // Instrument: no main input, stereo output only (simplifies FL Studio routing)
     const AUDIO_IO_LAYOUTS: &'static [AudioIOLayout] = &[AudioIOLayout {
         main_input_channels: None,
         main_output_channels: NonZeroU32::new(2),
@@ -122,20 +105,25 @@ impl Plugin for SineSynth {
             move |egui_ctx, setter, _state| {
                 egui::CentralPanel::default().show(egui_ctx, |ui| {
                     ui.heading("Sine Wave Synth");
-                    ui.add_space(10.0);
-                    ui.label("Frequency");
-                    ui.add(
-                        widgets::ParamSlider::for_param(&params.frequency, setter)
-                            .with_width(220.0),
-                    );
-                    ui.add_space(10.0);
-                    ui.label("Gain");
-                    ui.add(widgets::ParamSlider::for_param(&params.gain, setter).with_width(220.0));
-                    ui.add_space(10.0);
-                    ui.label("Idle Tone (for routing test)");
-                    ui.add(
-                        widgets::ParamSlider::for_param(&params.idle_db, setter).with_width(220.0),
-                    );
+                    ui.add_space(20.0);
+
+                    let available_width = ui.available_width();
+
+                    ui.vertical(|ui| {
+                        ui.label("Frequency");
+                        ui.add(
+                            widgets::ParamSlider::for_param(&params.frequency, setter)
+                                .with_width(available_width),
+                        );
+
+                        ui.add_space(20.0);
+
+                        ui.label("Gain");
+                        ui.add(
+                            widgets::ParamSlider::for_param(&params.gain, setter)
+                                .with_width(available_width),
+                        );
+                    });
                 });
             },
         )
@@ -167,7 +155,6 @@ impl Plugin for SineSynth {
         // Handle all incoming note/MIDI events
         while let Some(event) = context.next_event() {
             match event {
-                // Treat velocity==0 as NoteOff (some hosts do this)
                 NoteEvent::NoteOn { note, velocity, .. } => {
                     if velocity > 0.0 {
                         self.current_note = Some(note);
@@ -194,25 +181,18 @@ impl Plugin for SineSynth {
             }
         }
 
-        // Generate audio
+        // Generate audio only when a note gate is open; else output silence
         for (_frame_idx, channel_samples) in buffer.iter_samples().enumerate() {
-            let base_freq = self.params.frequency.smoothed.next();
             let gain = self.params.gain.smoothed.next();
-            let idle = self.params.idle_db.smoothed.next(); // quiet test tone
 
-            // Use MIDI note frequency if gated; otherwise emit an ultra-quiet test tone so routing is verifiable
-            let freq = if self.gate {
-                self.current_freq
-            } else {
-                base_freq
-            };
+            let freq = if self.gate { self.current_freq } else { 0.0 };
+
             let phase_incr = (freq / self.sample_rate) * TAU;
 
             let sample = if self.gate {
                 self.phase.sin() * gain
             } else {
-                // test tone at a very low level; set Idle Tone to 0 dB in UI to disable completely
-                self.phase.sin() * idle
+                0.0
             };
 
             for output_sample in channel_samples {
@@ -229,18 +209,8 @@ impl Plugin for SineSynth {
     }
 }
 
-// VST3 metadata
-impl Vst3Plugin for SineSynth {
-    // Use a unique, stable 16-byte ID (keep this constant once released)
-    const VST3_CLASS_ID: [u8; 16] = *b"SineSynthFL2025!"; // exactly 16 bytes
-
-    // Keep this strictly a synth to ensure generator classification
-    const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] = &[Vst3SubCategory::Synth];
-}
-
 // CLAP metadata
 impl ClapPlugin for SineSynth {
-    // Use reverse-DNS; keep stable once users have projects with it
     const CLAP_ID: &'static str = "com.yourdomain.simple-sine-synth";
     const CLAP_DESCRIPTION: Option<&'static str> = Some("Simple mono sine wave synthesizer");
     const CLAP_MANUAL_URL: Option<&'static str> = None;
