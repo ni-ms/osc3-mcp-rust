@@ -75,26 +75,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get release notes from template
-        if: steps.check_version.outputs.version_changed == 'true'
-        id: get_release_notes
-        run: |
-          RELEASE_BODY=$(cat templates/release_template.md)
-          echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
-          echo "$RELEASE_BODY" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
-      - name: Create GitHub Release
-        if: steps.check_version.outputs.version_changed == 'true'
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: "v${{ steps.check_version.outputs.version }}"
-          name: Release v${{ steps.check_version.outputs.version }}
-          body: ${{ env.RELEASE_BODY }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Zip bundled plugin
         if: steps.check_version.outputs.version_changed == 'true'
         run: |
@@ -102,11 +82,18 @@ jobs:
           zip -r ../../osc3-mcp-rust-plugin.zip .
           cd ../..
 
-      - name: Upload bundled plugin zip
+      - name: Get release notes from template
         if: steps.check_version.outputs.version_changed == 'true'
-        uses: actions/upload-release-asset@v1
+        run: |
+          sed "s/{{VERSION}}/${{ steps.check_version.outputs.version }}/g" templates/release_template.md > release_notes.md
+
+      - name: Create GitHub Release with asset
+        if: steps.check_version.outputs.version_changed == 'true'
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: osc3-mcp-rust-plugin.zip
-          asset_name: osc3-mcp-rust-plugin.zip
-          asset_content_type: application/zip
+          tag_name: "v${{ steps.check_version.outputs.version }}"
+          name: Release v${{ steps.check_version.outputs.version }}
+          body_path: release_notes.md
+          files: osc3-mcp-rust-plugin.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
