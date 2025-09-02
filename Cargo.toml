@@ -1,0 +1,28 @@
+[package]
+name = "osc3-mcp-rust"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "A cool synthesizer plugin built with Rust and egui"
+readme = "README.md"
+
+[workspace]
+members = ["xtask"]
+
+[dependencies]
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", features = ["assert_process_allocs", "standalone"] }
+nih_plug_egui = { git = "https://github.com/robbert-vdh/nih-plug.git" }
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[profile.release]
+lto = "thin"
+opt-level = 3
+codegen-units = 1
+strip = "symbols"
+
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = "none"
