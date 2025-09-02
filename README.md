@@ -2,6 +2,6 @@
 
 It's still WIP, run the below command to compile it
 
-```cargo xtask bundle SineSynth```
+```cargo xtask bundle osc3-mcp-rust```
 
 Working in fl studio v25.1.1
