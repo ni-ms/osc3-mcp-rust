@@ -209,6 +209,11 @@ impl Plugin for SineSynth {
     }
 }
 
+impl Vst3Plugin for SineSynth {
+    const VST3_CLASS_ID: [u8; 16] = *b"SineSynthFL2025!";
+    const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] = &[Vst3SubCategory::Synth];
+}
+
 // CLAP metadata
 impl ClapPlugin for SineSynth {
     const CLAP_ID: &'static str = "com.yourdomain.simple-sine-synth";
