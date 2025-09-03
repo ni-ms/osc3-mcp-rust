@@ -44,7 +44,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Required for tag comparison
+          fetch-depth: 0
 
       - name: Check if Cargo.toml version changed
         id: check_version
@@ -79,9 +79,8 @@ jobs:
       - name: Zip bundled plugin
         if: steps.check_version.outputs.version_changed == 'true'
         run: |
-          cd target/bundled
-          zip -r ../../osc3-mcp-rust-plugin.zip .
-          cd ../..
+          mkdir -p dist
+          zip -r dist/osc3-mcp-rust-plugin.zip target/bundled
 
       - name: Get release notes from template
         if: steps.check_version.outputs.version_changed == 'true'
@@ -93,8 +92,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: "v${{ steps.check_version.outputs.version }}"
-          name: Release v${{ steps.check_version.outputs.version }}"
+          name: "Release v${{ steps.check_version.outputs.version }}"
           body_path: release_notes.md
-          files: osc3-mcp-rust-plugin.zip
+          files: dist/osc3-mcp-rust-plugin.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
