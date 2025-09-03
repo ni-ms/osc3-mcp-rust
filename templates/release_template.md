@@ -1,1 +1,2 @@
-Release V1
+Release v{{VERSION}}
+====================
