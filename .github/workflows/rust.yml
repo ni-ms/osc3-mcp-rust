@@ -30,17 +30,16 @@ jobs:
             libgl1-mesa-dev \
             libx11-xcb-dev \
             libjack-jackd2-dev \
-            zip \
-            binutils
+            zip
 
       - name: Build in release mode
         run: cargo build --release --verbose
 
-      - name: Bundle plugin (release)
-        run: cargo xtask bundle osc3-mcp-rust --release
+      - name: Run tests
+        run: cargo test --verbose
 
-      - name: Strip binary
-        run: strip target/bundled/osc3-mcp-rust
+      - name: Bundle osc3-mcp-rust plugin
+        run: cargo xtask bundle osc3-mcp-rust
 
       - name: Get version from Cargo.toml
         id: get_version
@@ -74,8 +73,8 @@ jobs:
         if: github.ref == 'refs/heads/master' && steps.check_tag.outputs.exists == 'false'
         run: |
           mkdir -p dist
-          cp target/bundled/osc3-mcp-rust dist/
-          zip -j osc3-mcp-rust-plugin.zip dist/osc3-mcp-rust
+          cp -r target/bundled/* dist/
+          zip -r osc3-mcp-rust-plugin.zip dist
 
       - name: Generate release notes
         if: github.ref == 'refs/heads/master' && steps.check_tag.outputs.exists == 'false'
