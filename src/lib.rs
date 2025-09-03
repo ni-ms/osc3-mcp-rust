@@ -52,7 +52,6 @@ impl Voice {
             self.target_freqs[i] = base_freq;
             self.current_freqs[i] = base_freq;
             self.freq_smoothers[i].reset(base_freq);
-            // self.phases[i] = 0.0;
         }
     }
 
@@ -68,8 +67,14 @@ struct SineParams {
     #[persist = "editor-state"]
     editor_state: Arc<EguiState>,
 
-    #[id = "waveform"]
-    waveform: EnumParam<Waveform>,
+    #[id = "waveform1"]
+    waveform1: EnumParam<Waveform>,
+
+    #[id = "waveform2"]
+    waveform2: EnumParam<Waveform>,
+
+    #[id = "waveform3"]
+    waveform3: EnumParam<Waveform>,
 
     #[id = "freq1"]
     frequency1: FloatParam,
@@ -94,7 +99,9 @@ impl Default for SineParams {
     fn default() -> Self {
         Self {
             editor_state: EguiState::from_size(700, 700),
-            waveform: EnumParam::new("Waveform", Waveform::default()),
+            waveform1: EnumParam::new("Waveform 1", Waveform::default()),
+            waveform2: EnumParam::new("Waveform 2", Waveform::default()),
+            waveform3: EnumParam::new("Waveform 3", Waveform::default()),
             frequency1: FloatParam::new(
                 "Frequency 1",
                 440.0,
@@ -104,10 +111,10 @@ impl Default for SineParams {
                     factor: 0.5,
                 },
             )
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" Hz")
-            .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
-            .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+                .with_smoother(SmoothingStyle::Logarithmic(50.0))
+                .with_unit(" Hz")
+                .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
+                .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
             gain1: FloatParam::new(
                 "Gain 1",
                 util::db_to_gain(-6.0),
@@ -116,10 +123,10 @@ impl Default for SineParams {
                     max: util::db_to_gain(0.0),
                 },
             )
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" dB")
-            .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
-            .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+                .with_smoother(SmoothingStyle::Logarithmic(50.0))
+                .with_unit(" dB")
+                .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
+                .with_string_to_value(formatters::s2v_f32_gain_to_db()),
 
             frequency2: FloatParam::new(
                 "Frequency 2",
@@ -130,10 +137,10 @@ impl Default for SineParams {
                     factor: 0.5,
                 },
             )
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" Hz")
-            .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
-            .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+                .with_smoother(SmoothingStyle::Logarithmic(50.0))
+                .with_unit(" Hz")
+                .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
+                .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
             gain2: FloatParam::new(
                 "Gain 2",
                 util::db_to_gain(-6.0),
@@ -142,10 +149,10 @@ impl Default for SineParams {
                     max: util::db_to_gain(0.0),
                 },
             )
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" dB")
-            .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
-            .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+                .with_smoother(SmoothingStyle::Logarithmic(50.0))
+                .with_unit(" dB")
+                .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
+                .with_string_to_value(formatters::s2v_f32_gain_to_db()),
 
             frequency3: FloatParam::new(
                 "Frequency 3",
@@ -156,10 +163,10 @@ impl Default for SineParams {
                     factor: 0.5,
                 },
             )
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" Hz")
-            .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
-            .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+                .with_smoother(SmoothingStyle::Logarithmic(50.0))
+                .with_unit(" Hz")
+                .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
+                .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
             gain3: FloatParam::new(
                 "Gain 3",
                 util::db_to_gain(-6.0),
@@ -168,10 +175,10 @@ impl Default for SineParams {
                     max: util::db_to_gain(0.0),
                 },
             )
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" dB")
-            .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
-            .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+                .with_smoother(SmoothingStyle::Logarithmic(50.0))
+                .with_unit(" dB")
+                .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
+                .with_string_to_value(formatters::s2v_f32_gain_to_db()),
         }
     }
 }
@@ -286,9 +293,9 @@ impl Plugin for SineSynth {
                     let available_width = ui.available_width();
 
                     ui.vertical(|ui| {
-                        ui.label("Waveform");
-                        egui::ComboBox::from_label("Waveform")
-                            .selected_text(format!("{:?}", params.waveform.value()))
+                        ui.label("Waveform 1");
+                        egui::ComboBox::from_label("Waveform 1")
+                            .selected_text(format!("{:?}", params.waveform1.value()))
                             .show_ui(ui, |ui| {
                                 for &variant in &[
                                     Waveform::Sine,
@@ -298,12 +305,12 @@ impl Plugin for SineSynth {
                                 ] {
                                     if ui
                                         .selectable_label(
-                                            params.waveform.value() == variant,
+                                            params.waveform1.value() == variant,
                                             format!("{:?}", variant),
                                         )
                                         .clicked()
                                     {
-                                        setter.set_parameter(&params.waveform, variant);
+                                        setter.set_parameter(&params.waveform1, variant);
                                     }
                                 }
                             });
@@ -323,6 +330,30 @@ impl Plugin for SineSynth {
 
                         ui.add_space(20.0);
 
+                        ui.label("Waveform 2");
+                        egui::ComboBox::from_label("Waveform 2")
+                            .selected_text(format!("{:?}", params.waveform2.value()))
+                            .show_ui(ui, |ui| {
+                                for &variant in &[
+                                    Waveform::Sine,
+                                    Waveform::Square,
+                                    Waveform::Triangle,
+                                    Waveform::Sawtooth,
+                                ] {
+                                    if ui
+                                        .selectable_label(
+                                            params.waveform2.value() == variant,
+                                            format!("{:?}", variant),
+                                        )
+                                        .clicked()
+                                    {
+                                        setter.set_parameter(&params.waveform2, variant);
+                                    }
+                                }
+                            });
+
+                        ui.add_space(20.0);
+
                         ui.label("Frequency 2");
                         ui.add(
                             widgets::ParamSlider::for_param(&params.frequency2, setter)
@@ -333,6 +364,30 @@ impl Plugin for SineSynth {
                             widgets::ParamSlider::for_param(&params.gain2, setter)
                                 .with_width(available_width),
                         );
+
+                        ui.add_space(20.0);
+
+                        ui.label("Waveform 3");
+                        egui::ComboBox::from_label("Waveform 3")
+                            .selected_text(format!("{:?}", params.waveform3.value()))
+                            .show_ui(ui, |ui| {
+                                for &variant in &[
+                                    Waveform::Sine,
+                                    Waveform::Square,
+                                    Waveform::Triangle,
+                                    Waveform::Sawtooth,
+                                ] {
+                                    if ui
+                                        .selectable_label(
+                                            params.waveform3.value() == variant,
+                                            format!("{:?}", variant),
+                                        )
+                                        .clicked()
+                                    {
+                                        setter.set_parameter(&params.waveform3, variant);
+                                    }
+                                }
+                            });
 
                         ui.add_space(20.0);
 
@@ -409,7 +464,11 @@ impl Plugin for SineSynth {
             }
         }
 
-        let waveform = self.params.waveform.value();
+        let waveform_params = [
+            self.params.waveform1.value(),
+            self.params.waveform2.value(),
+            self.params.waveform3.value(),
+        ];
 
         for (_frame_idx, channel_samples) in buffer.iter_samples().enumerate() {
             let gains = [
@@ -440,7 +499,8 @@ impl Plugin for SineSynth {
 
                     for i in 0..3 {
                         let phase_incr = (voice.current_freqs[i] / self.sample_rate) * TAU;
-                        let osc_sample = match waveform {
+
+                        let osc_sample = match waveform_params[i] {
                             Waveform::Sine => voice.phases[i].sin(),
                             Waveform::Square => {
                                 if voice.phases[i] < std::f32::consts::PI {

@@ -1,6 +1,6 @@
 [package]
 name = "osc3-mcp-rust"
-version = "0.1.15"
+version = "0.1.16"
 edition = "2024"
 license = "MIT"
 description = "A cool synthesizer plugin built with Rust and egui"
