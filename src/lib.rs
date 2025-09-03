@@ -20,6 +20,49 @@ impl Default for Waveform {
     }
 }
 
+struct Voice {
+    active: bool,
+    note: u8,
+    phases: [f32; 3],
+    freq_smoothers: [SmoothedValue; 3],
+    target_freqs: [f32; 3],
+    current_freqs: [f32; 3],
+}
+
+impl Voice {
+    fn new(sample_rate: f32) -> Self {
+        Self {
+            active: false,
+            note: 0,
+            phases: [0.0; 3],
+            freq_smoothers: [
+                SmoothedValue::new(sample_rate, 0.005),
+                SmoothedValue::new(sample_rate, 0.005),
+                SmoothedValue::new(sample_rate, 0.005),
+            ],
+            target_freqs: [0.0; 3],
+            current_freqs: [0.0; 3],
+        }
+    }
+
+    fn note_on(&mut self, note: u8, base_freq: f32) {
+        self.active = true;
+        self.note = note;
+        for i in 0..3 {
+            self.target_freqs[i] = base_freq;
+            self.current_freqs[i] = base_freq;
+            self.freq_smoothers[i].reset(base_freq);
+            // self.phases[i] = 0.0;
+        }
+    }
+
+    fn note_off(&mut self, note: u8) {
+        if self.note == note {
+            self.active = false;
+        }
+    }
+}
+
 #[derive(Params)]
 struct SineParams {
     #[persist = "editor-state"]
@@ -28,20 +71,32 @@ struct SineParams {
     #[id = "waveform"]
     waveform: EnumParam<Waveform>,
 
-    #[id = "freq"]
-    frequency: FloatParam,
+    #[id = "freq1"]
+    frequency1: FloatParam,
 
-    #[id = "gain"]
-    gain: FloatParam,
+    #[id = "gain1"]
+    gain1: FloatParam,
+
+    #[id = "freq2"]
+    frequency2: FloatParam,
+
+    #[id = "gain2"]
+    gain2: FloatParam,
+
+    #[id = "freq3"]
+    frequency3: FloatParam,
+
+    #[id = "gain3"]
+    gain3: FloatParam,
 }
 
 impl Default for SineParams {
     fn default() -> Self {
         Self {
-            editor_state: EguiState::from_size(700, 250),
+            editor_state: EguiState::from_size(700, 700),
             waveform: EnumParam::new("Waveform", Waveform::default()),
-            frequency: FloatParam::new(
-                "Frequency",
+            frequency1: FloatParam::new(
+                "Frequency 1",
                 440.0,
                 FloatRange::Skewed {
                     min: 20.0,
@@ -53,8 +108,60 @@ impl Default for SineParams {
             .with_unit(" Hz")
             .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
             .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
-            gain: FloatParam::new(
-                "Gain",
+            gain1: FloatParam::new(
+                "Gain 1",
+                util::db_to_gain(-6.0),
+                FloatRange::Linear {
+                    min: util::db_to_gain(-36.0),
+                    max: util::db_to_gain(0.0),
+                },
+            )
+            .with_smoother(SmoothingStyle::Logarithmic(50.0))
+            .with_unit(" dB")
+            .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
+            .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+
+            frequency2: FloatParam::new(
+                "Frequency 2",
+                440.0,
+                FloatRange::Skewed {
+                    min: 20.0,
+                    max: 20_000.0,
+                    factor: 0.5,
+                },
+            )
+            .with_smoother(SmoothingStyle::Logarithmic(50.0))
+            .with_unit(" Hz")
+            .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
+            .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+            gain2: FloatParam::new(
+                "Gain 2",
+                util::db_to_gain(-6.0),
+                FloatRange::Linear {
+                    min: util::db_to_gain(-36.0),
+                    max: util::db_to_gain(0.0),
+                },
+            )
+            .with_smoother(SmoothingStyle::Logarithmic(50.0))
+            .with_unit(" dB")
+            .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
+            .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+
+            frequency3: FloatParam::new(
+                "Frequency 3",
+                440.0,
+                FloatRange::Skewed {
+                    min: 20.0,
+                    max: 20_000.0,
+                    factor: 0.5,
+                },
+            )
+            .with_smoother(SmoothingStyle::Logarithmic(50.0))
+            .with_unit(" Hz")
+            .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
+            .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+            gain3: FloatParam::new(
+                "Gain 3",
                 util::db_to_gain(-6.0),
                 FloatRange::Linear {
                     min: util::db_to_gain(-36.0),
@@ -71,13 +178,14 @@ impl Default for SineParams {
 
 pub struct SineSynth {
     params: Arc<SineParams>,
-    phase: f32,
     sample_rate: f32,
+    voices: Vec<Voice>,
+    phases: [f32; 3],
     current_note: Option<u8>,
 
-    current_freq: f32,
-    target_freq: f32,
-    freq_smoother: SmoothedValue,
+    current_freqs: [f32; 3],
+    target_freqs: [f32; 3],
+    freq_smoothers: [SmoothedValue; 3],
 
     gate: bool,
 }
@@ -119,21 +227,32 @@ impl SmoothedValue {
 
 impl Default for SineSynth {
     fn default() -> Self {
+        let sample_rate = 44100.0;
+        let mut voices = Vec::with_capacity(8);
+        for _ in 0..8 {
+            voices.push(Voice::new(sample_rate));
+        }
+
         Self {
             params: Arc::new(SineParams::default()),
-            phase: 0.0,
-            sample_rate: 44100.0,
+            phases: [0.0, 0.0, 0.0],
+            sample_rate,
+            voices,
             current_note: None,
-            current_freq: 440.0,
-            target_freq: 440.0,
-            freq_smoother: SmoothedValue::new(44100.0, 0.005),
+            current_freqs: [440.0; 3],
+            target_freqs: [440.0; 3],
+            freq_smoothers: [
+                SmoothedValue::new(sample_rate, 0.005),
+                SmoothedValue::new(sample_rate, 0.005),
+                SmoothedValue::new(sample_rate, 0.005),
+            ],
             gate: false,
         }
     }
 }
 
 impl Plugin for SineSynth {
-    const NAME: &'static str = "Simple Sine Synth";
+    const NAME: &'static str = "Triple Oscillator Synth";
     const VENDOR: &'static str = "Your Name";
     const URL: &'static str = "https://your.website";
     const EMAIL: &'static str = "your@email.com";
@@ -161,7 +280,7 @@ impl Plugin for SineSynth {
             |_, _| {},
             move |egui_ctx, setter, _state| {
                 egui::CentralPanel::default().show(egui_ctx, |ui| {
-                    ui.heading("Sine Wave Synth");
+                    ui.heading("Triple Oscillator Synth");
                     ui.add_space(20.0);
 
                     let available_width = ui.available_width();
@@ -191,17 +310,40 @@ impl Plugin for SineSynth {
 
                         ui.add_space(20.0);
 
-                        ui.label("Frequency");
+                        ui.label("Frequency 1");
                         ui.add(
-                            widgets::ParamSlider::for_param(&params.frequency, setter)
+                            widgets::ParamSlider::for_param(&params.frequency1, setter)
+                                .with_width(available_width),
+                        );
+                        ui.label("Gain 1");
+                        ui.add(
+                            widgets::ParamSlider::for_param(&params.gain1, setter)
                                 .with_width(available_width),
                         );
 
                         ui.add_space(20.0);
 
-                        ui.label("Gain");
+                        ui.label("Frequency 2");
                         ui.add(
-                            widgets::ParamSlider::for_param(&params.gain, setter)
+                            widgets::ParamSlider::for_param(&params.frequency2, setter)
+                                .with_width(available_width),
+                        );
+                        ui.label("Gain 2");
+                        ui.add(
+                            widgets::ParamSlider::for_param(&params.gain2, setter)
+                                .with_width(available_width),
+                        );
+
+                        ui.add_space(20.0);
+
+                        ui.label("Frequency 3");
+                        ui.add(
+                            widgets::ParamSlider::for_param(&params.frequency3, setter)
+                                .with_width(available_width),
+                        );
+                        ui.label("Gain 3");
+                        ui.add(
+                            widgets::ParamSlider::for_param(&params.gain3, setter)
                                 .with_width(available_width),
                         );
                     });
@@ -217,15 +359,17 @@ impl Plugin for SineSynth {
         _context: &mut impl InitContext<Self>,
     ) -> bool {
         self.sample_rate = buffer_config.sample_rate;
-        self.freq_smoother.set_sample_rate(self.sample_rate);
+        for smoother in &mut self.freq_smoothers {
+            smoother.set_sample_rate(self.sample_rate);
+        }
         true
     }
 
     fn reset(&mut self) {
-        self.phase = 0.0;
+        self.phases = [0.0, 0.0, 0.0];
         self.current_note = None;
-        self.current_freq = 440.0;
-        self.target_freq = 440.0;
+        self.current_freqs = [440.0; 3];
+        self.target_freqs = [440.0; 3];
         self.gate = false;
     }
 
@@ -239,23 +383,27 @@ impl Plugin for SineSynth {
             match event {
                 NoteEvent::NoteOn { note, velocity, .. } => {
                     if velocity > 0.0 {
-                        self.current_note = Some(note);
-                        self.target_freq = 440.0 * (2.0_f32).powf((note as f32 - 69.0) / 12.0);
-                        self.gate = true;
-                    } else if Some(note) == self.current_note {
-                        self.gate = false;
-                        self.current_note = None;
+                        let base_freq = 440.0 * (2.0_f32).powf((note as f32 - 69.0) / 12.0);
+                        if let Some(voice) = self.voices.iter_mut().find(|v| !v.active) {
+                            voice.note_on(note, base_freq);
+                        } else {
+                            self.voices[0].note_on(note, base_freq);
+                        }
+                    } else {
+                        for voice in &mut self.voices {
+                            voice.note_off(note);
+                        }
                     }
                 }
                 NoteEvent::NoteOff { note, .. } => {
-                    if Some(note) == self.current_note {
-                        self.gate = false;
-                        self.current_note = None;
+                    for voice in &mut self.voices {
+                        voice.note_off(note);
                     }
                 }
                 NoteEvent::Choke { .. } => {
-                    self.gate = false;
-                    self.current_note = None;
+                    for voice in &mut self.voices {
+                        voice.active = false;
+                    }
                 }
                 _ => {}
             }
@@ -264,40 +412,69 @@ impl Plugin for SineSynth {
         let waveform = self.params.waveform.value();
 
         for (_frame_idx, channel_samples) in buffer.iter_samples().enumerate() {
-            let gain = self.params.gain.smoothed.next();
+            let gains = [
+                self.params.gain1.smoothed.next(),
+                self.params.gain2.smoothed.next(),
+                self.params.gain3.smoothed.next(),
+            ];
 
-            // Smooth frequency update
-            self.current_freq = self.freq_smoother.next(self.target_freq);
+            let mut sample = 0.0;
+            let mut active_voice_count = 0;
 
-            let freq = if self.gate { self.current_freq } else { 0.0 };
-            let phase_incr = (freq / self.sample_rate) * TAU;
+            for voice in &mut self.voices {
+                if voice.active {
+                    active_voice_count += 1;
 
-            let sample = if self.gate {
-                match waveform {
-                    Waveform::Sine => self.phase.sin() * gain,
-                    Waveform::Square => {
-                        if self.phase < std::f32::consts::PI {
-                            gain
-                        } else {
-                            -gain
+                    for i in 0..3 {
+                        let freq_multiplier = match i {
+                            0 => self.params.frequency1.value() / 440.0,
+                            1 => self.params.frequency2.value() / 440.0,
+                            2 => self.params.frequency3.value() / 440.0,
+                            _ => 1.0,
+                        };
+                        let target_freq = voice.target_freqs[i] * freq_multiplier;
+                        voice.current_freqs[i] = voice.freq_smoothers[i].next(target_freq);
+                    }
+
+                    let mut voice_sample = 0.0;
+
+                    for i in 0..3 {
+                        let phase_incr = (voice.current_freqs[i] / self.sample_rate) * TAU;
+                        let osc_sample = match waveform {
+                            Waveform::Sine => voice.phases[i].sin(),
+                            Waveform::Square => {
+                                if voice.phases[i] < std::f32::consts::PI {
+                                    1.0
+                                } else {
+                                    -1.0
+                                }
+                            }
+                            Waveform::Triangle => {
+                                (2.0 * (voice.phases[i] / TAU) - 1.0).abs() * 2.0 - 1.0
+                            }
+                            Waveform::Sawtooth => (voice.phases[i] / TAU) * 2.0 - 1.0,
+                        };
+
+                        voice_sample += osc_sample * gains[i];
+
+                        voice.phases[i] += phase_incr;
+                        if voice.phases[i] >= TAU {
+                            voice.phases[i] -= TAU;
                         }
                     }
-                    Waveform::Triangle => {
-                        ((2.0 * (self.phase / TAU) - 1.0).abs() * 2.0 - 1.0) * gain
-                    }
-                    Waveform::Sawtooth => ((self.phase / TAU) * 2.0 - 1.0) * gain,
+
+                    sample += voice_sample;
                 }
+            }
+
+            let norm_factor = if active_voice_count == 0 {
+                1.0
             } else {
-                0.0
+                active_voice_count as f32
             };
 
             for output_sample in channel_samples {
-                *output_sample = sample;
-            }
-
-            self.phase += phase_incr;
-            if self.phase >= TAU {
-                self.phase -= TAU;
+                *output_sample = sample / norm_factor;
             }
         }
 
@@ -306,13 +483,13 @@ impl Plugin for SineSynth {
 }
 
 impl Vst3Plugin for SineSynth {
-    const VST3_CLASS_ID: [u8; 16] = *b"SineSynthFL2025!";
+    const VST3_CLASS_ID: [u8; 16] = *b"TriOscSynth2025!";
     const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] = &[Vst3SubCategory::Synth];
 }
 
 impl ClapPlugin for SineSynth {
-    const CLAP_ID: &'static str = "com.yourdomain.simple-sine-synth";
-    const CLAP_DESCRIPTION: Option<&'static str> = Some("Simple mono wave synthesizer");
+    const CLAP_ID: &'static str = "com.yourdomain.triple-osc-synth";
+    const CLAP_DESCRIPTION: Option<&'static str> = Some("Triple oscillator wave synthesizer");
     const CLAP_MANUAL_URL: Option<&'static str> = None;
     const CLAP_SUPPORT_URL: Option<&'static str> = None;
     const CLAP_FEATURES: &'static [ClapFeature] = &[ClapFeature::Instrument];
