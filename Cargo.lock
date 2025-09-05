@@ -2123,6 +2123,7 @@ dependencies = [
 name = "osc3-mcp-rust"
 version = "0.1.16"
 dependencies = [
+ "fluent-bundle",
  "nih_plug",
  "vizia_plug",
 ]

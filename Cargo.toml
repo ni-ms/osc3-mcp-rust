@@ -12,6 +12,7 @@ members = ["xtask"]
 [dependencies]
 nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", features = ["assert_process_allocs", "standalone"] }
 vizia_plug = { git = "https://github.com/vizia/vizia-plug.git", branch = "main"}
+fluent-bundle = "0.15.3"
 
 [lib]
 crate-type = ["cdylib", "lib"]

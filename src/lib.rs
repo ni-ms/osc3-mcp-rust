@@ -10,9 +10,13 @@ mod editor;
 
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Waveform {
+    #[id = "sine"]
     Sine,
+    #[id = "square"]
     Square,
+    #[id = "triangle"]
     Triangle,
+    #[id = "sawtooth"]
     Sawtooth,
 }
 
@@ -187,19 +191,12 @@ pub struct SineSynth {
     params: Arc<SineParams>,
     sample_rate: f32,
     voices: Vec<Voice>,
-    phases: [f32; 3],
-    current_note: Option<u8>,
-    current_freqs: [f32; 3],
-    target_freqs: [f32; 3],
-    freq_smoothers: [SmoothedValue; 3],
-    gate: bool,
 }
 
 pub struct SmoothedValue {
     sample_rate: f32,
     smoothing_time_s: f32,
     current: f32,
-    step: f32,
 }
 
 impl SmoothedValue {
@@ -208,7 +205,6 @@ impl SmoothedValue {
             sample_rate,
             smoothing_time_s,
             current: 0.0,
-            step: 0.0,
         }
     }
 
@@ -218,7 +214,6 @@ impl SmoothedValue {
 
     pub fn reset(&mut self, value: f32) {
         self.current = value;
-        self.step = 0.0;
     }
 
     pub fn next(&mut self, target: f32) -> f32 {
@@ -239,18 +234,8 @@ impl Default for SineSynth {
 
         Self {
             params: Arc::new(SineParams::default()),
-            phases: [0.0, 0.0, 0.0],
             sample_rate,
             voices,
-            current_note: None,
-            current_freqs: [440.0; 3],
-            target_freqs: [440.0; 3],
-            freq_smoothers: [
-                SmoothedValue::new(sample_rate, 0.005),
-                SmoothedValue::new(sample_rate, 0.005),
-                SmoothedValue::new(sample_rate, 0.005),
-            ],
-            gate: false,
         }
     }
 }
@@ -288,18 +273,19 @@ impl Plugin for SineSynth {
         _context: &mut impl InitContext<Self>,
     ) -> bool {
         self.sample_rate = buffer_config.sample_rate;
-        for smoother in &mut self.freq_smoothers {
-            smoother.set_sample_rate(self.sample_rate);
+        for voice in &mut self.voices {
+            for smoother in &mut voice.freq_smoothers {
+                smoother.set_sample_rate(self.sample_rate);
+            }
         }
         true
     }
 
     fn reset(&mut self) {
-        self.phases = [0.0, 0.0, 0.0];
-        self.current_note = None;
-        self.current_freqs = [440.0; 3];
-        self.target_freqs = [440.0; 3];
-        self.gate = false;
+        for voice in &mut self.voices {
+            voice.active = false;
+            voice.phases = [0.0; 3];
+        }
     }
 
     fn process(
@@ -338,6 +324,7 @@ impl Plugin for SineSynth {
             }
         }
 
+        // Get waveform parameters - these are the actual enum values
         let waveform_params = [
             self.params.waveform1.value(),
             self.params.waveform2.value(),
@@ -360,9 +347,9 @@ impl Plugin for SineSynth {
 
                     for i in 0..3 {
                         let freq_multiplier = match i {
-                            0 => self.params.frequency1.value() / 440.0,
-                            1 => self.params.frequency2.value() / 440.0,
-                            2 => self.params.frequency3.value() / 440.0,
+                            0 => self.params.frequency1.smoothed.next() / 440.0,
+                            1 => self.params.frequency2.smoothed.next() / 440.0,
+                            2 => self.params.frequency3.smoothed.next() / 440.0,
                             _ => 1.0,
                         };
                         let target_freq = voice.target_freqs[i] * freq_multiplier;
