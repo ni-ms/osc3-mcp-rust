@@ -2,7 +2,7 @@ use nih_plug::prelude::{Editor, Enum, EnumParam, Param};
 use std::sync::Arc;
 use vizia_plug::vizia::prelude::*;
 use vizia_plug::widgets::*;
-use vizia_plug::{create_vizia_editor, ViziaState, ViziaTheming};
+use vizia_plug::{ViziaState, ViziaTheming, create_vizia_editor};
 
 use crate::{SineParams, Waveform};
 
@@ -10,7 +10,6 @@ pub const NOTO_SANS: &str = "Noto Sans";
 
 #[derive(Lens)]
 struct Data {
-    // Keep the Arc to the params in the app model so widgets can lens into it
     params: Arc<SineParams>,
 }
 
@@ -20,108 +19,108 @@ pub(crate) fn default_state() -> Arc<ViziaState> {
     ViziaState::new(|| (650, 550))
 }
 
-use vizia_plug::widgets::ParamEvent;
-
 #[derive(Lens, Debug, Clone, Copy, PartialEq, Eq)]
 struct WaveformDropdown {
     is_open: bool,
 }
 
-impl WaveformDropdown {
-    pub fn new<L, Params>(
-        cx: &mut Context,
-        params: L,
-        params_to_param: impl Fn(&Params) -> &EnumParam<Waveform> + Copy + Send + 'static,
-    ) -> Handle<Self>
-    where
-        L: Lens<Target = Params> + Clone + 'static,
-        Params: 'static,
-    {
-        Self { is_open: false }
-            .build(cx, |cx| {
-                // Button area (label + caret)
-                HStack::new(cx, |cx| {
-                    // Current value label
+fn waveform_dropdown<L>(
+    cx: &mut Context,
+    params: L,
+    map: impl Fn(&SineParams) -> &EnumParam<Waveform> + Copy + Send + Sync + 'static,
+) -> Handle<Dropdown>
+where
+    L: Lens<Target = Arc<SineParams>> + Clone + 'static,
+{
+    Dropdown::new(
+        cx,
+        // Trigger
+        {
+            let params = params.clone();
+            move |cx| {
+                HStack::new(cx, move |cx| {
                     Label::new(
                         cx,
-                        params
-                            .clone()
-                            .map(move |p| {
-                                let param = params_to_param(p);
-                                waveform_to_str(&param.value()).to_string()
-                            }),
+                        params.clone().map(move |p| {
+                            let param = map(&*p);
+                            waveform_to_str(&param.value()).to_string()
+                        }),
                     )
-                        .width(Pixels(80.0))
-                        .height(Pixels(25.0))
-                        .background_color(Color::rgb(60, 80, 120))
-                        .corner_radius(Pixels(3.0))
-                        .space(Stretch(1.0))
-                        .font_size(12.0)
-                        .color(Color::white());
+                    .width(Pixels(80.0))
+                    .height(Pixels(25.0))
+                    .alignment(Alignment::Center)
+                    .background_color(Color::rgb(60, 80, 120))
+                    .corner_radius(Pixels(3.0))
+                    .space(Stretch(1.0))
+                    .font_size(12.0)
+                    .color(Color::white());
 
-                    // Caret
                     Label::new(cx, "▼")
                         .width(Pixels(15.0))
                         .height(Pixels(25.0))
+                        .alignment(Alignment::Center)
                         .color(Color::white())
                         .font_size(10.0)
                         .space(Stretch(1.0));
                 })
-                    .width(Pixels(100.0))
-                    .height(Pixels(25.0))
-                    .background_color(Color::rgb(60, 80, 120))
-                    .corner_radius(Pixels(3.0))
-                    .cursor(CursorIcon::Hand)
-                    .on_press(|cx| cx.emit(DropdownEvent::ToggleOpen));
-
-                // Popup menu
-                VStack::new(cx, |cx| {
-                    for option in &[
-                        Waveform::Sine,
-                        Waveform::Square,
-                        Waveform::Triangle,
-                        Waveform::Sawtooth,
-                    ] {
-                        let option_copy = *option;
-                        Label::new(cx, waveform_to_str(&option_copy))
-                            .width(Pixels(100.0))
-                            .height(Pixels(20.0))
-                            .background_color(Color::rgb(70, 90, 130))
-                            .corner_radius(Pixels(2.0))
-                            .space(Stretch(1.0))
-                            .font_size(11.0)
-                            .color(Color::white())
-                            .cursor(CursorIcon::Hand)
-                            .on_press({
-                                move |cx| {
-                                    // Look up the params from the app model and update the EnumParam via ParamEvent
-                                    if let Some(data) = cx.data::<Data>() {
-                                        let param_ref = params_to_param(&*data.params);
-                                        cx.emit(ParamEvent::BeginSetParameter(param_ref).upcast());
-                                        cx.emit(ParamEvent::SetParameter(param_ref, option_copy).upcast());
-                                        cx.emit(ParamEvent::EndSetParameter(param_ref).upcast());
-                                    }
-                                    cx.emit(DropdownEvent::ToggleOpen);
-                                }
+                .width(Pixels(100.0))
+                .height(Pixels(25.0))
+                .background_color(Color::rgb(60, 80, 120))
+                .corner_radius(Pixels(3.0))
+                .cursor(CursorIcon::Hand)
+                // Open/close popup
+                .on_press(|cx| cx.emit(PopupEvent::Switch));
+            }
+        },
+        // Popup content
+        move |cx| {
+            VStack::new(cx, |cx| {
+                for option in [
+                    Waveform::Sine,
+                    Waveform::Square,
+                    Waveform::Triangle,
+                    Waveform::Sawtooth,
+                ] {
+                    let option_copy = option;
+                    Label::new(cx, waveform_to_str(&option_copy))
+                        .width(Pixels(120.0))
+                        .height(Pixels(22.0))
+                        .alignment(Alignment::Center)
+                        .background_color(Color::rgb(70, 90, 130))
+                        .corner_radius(Pixels(2.0))
+                        .space(Stretch(1.0))
+                        .font_size(11.0)
+                        .color(Color::white())
+                        .cursor(CursorIcon::Hand)
+                        .on_press(move |cx| {
+                            // Precompute pointer + normalized value to avoid holding borrows across emits
+                            let payload = cx.data::<Data>().map(|data| {
+                                let p = map(&*data.params);
+                                (p.as_ptr(), p.preview_normalized(option_copy))
                             });
-                    }
-                })
-                    .display(
-                        WaveformDropdown::is_open.map(|open| if *open { Display::Flex } else { Display::None }),
-                    )
-                    // Anchor the popup under the button and keep it above siblings
-                    .position_type(PositionType::Absolute)
-                    .left(Pixels(0.0))
-                    .top(Pixels(27.0))
-                    .z_index(100)
-                    .background_color(Color::rgb(50, 60, 90))
-                    .corner_radius(Pixels(3.0))
-                    .border_width(Pixels(1.0))
-                    .border_color(Color::rgb(80, 100, 140));
+
+                            if let Some((param_ptr, normalized)) = payload {
+                                cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
+                                cx.emit(RawParamEvent::SetParameterNormalized(
+                                    param_ptr, normalized,
+                                ));
+                                cx.emit(RawParamEvent::EndSetParameter(param_ptr));
+                            }
+                            // Close immediately after selection
+                            cx.emit(PopupEvent::Close);
+                        });
+                }
             })
-            // Keep the overall control in normal flow; only the popup is absolute
-            .display(Display::Flex)
-    }
+            .background_color(Color::rgb(50, 60, 90))
+            .corner_radius(Pixels(3.0))
+            .border_width(Pixels(1.0))
+            .border_color(Color::rgb(80, 100, 140));
+        },
+    )
+    .placement(Placement::Bottom)
+    .show_arrow(false)
+    // Popup already closes on blur internally; this is optional
+    // .on_blur(|cx| cx.emit(PopupEvent::Close))
 }
 
 #[derive(Debug)]
@@ -138,7 +137,8 @@ impl View for WaveformDropdown {
         // Close on outside click
         event.map(|window_event, _| {
             if let WindowEvent::MouseDown(MouseButton::Left) = window_event {
-                if self.is_open && !cx.hovered() {
+                let hovered = cx.hovered(); // hovered is an Entity, not a bool
+                if self.is_open && hovered != cx.current() {
                     self.is_open = false;
                 }
             }
@@ -170,7 +170,10 @@ pub(crate) fn create(
         // If using custom theming, register the default widget styles
         vizia_plug::widgets::register_theme(cx);
 
-        Data { params: params.clone() }.build(cx);
+        Data {
+            params: params.clone(),
+        }
+        .build(cx);
 
         VStack::new(cx, |cx| {
             Label::new(cx, "Triple Oscillator Synth")
@@ -197,12 +200,12 @@ pub(crate) fn create(
                             .font_size(12.0);
 
                         // Use the fixed dropdown widget for EnumParam<Waveform>
-                        WaveformDropdown::new(cx, Data::params, |p| &p.waveform1)
+                        waveform_dropdown(cx, Data::params, |p| &p.waveform1)
                             .width(Pixels(100.0))
                             .height(Pixels(25.0));
                     })
-                        .height(Pixels(30.0))
-                        .space(Stretch(1.0));
+                    .height(Pixels(30.0))
+                    .space(Stretch(1.0));
 
                     HStack::new(cx, |cx| {
                         Label::new(cx, "Frequency")
@@ -213,8 +216,8 @@ pub(crate) fn create(
                             .width(Pixels(300.0))
                             .height(Pixels(20.0));
                     })
-                        .height(Pixels(25.0))
-                        .space(Stretch(1.0));
+                    .height(Pixels(25.0))
+                    .space(Stretch(1.0));
 
                     HStack::new(cx, |cx| {
                         Label::new(cx, "Gain")
@@ -225,16 +228,16 @@ pub(crate) fn create(
                             .width(Pixels(200.0))
                             .height(Pixels(20.0));
                     })
-                        .height(Pixels(25.0))
-                        .space(Stretch(1.0));
+                    .height(Pixels(25.0))
+                    .space(Stretch(1.0));
                 })
-                    .space(Stretch(1.0))
-                    .space(Pixels(5.0));
-            })
                 .space(Stretch(1.0))
-                .padding(Pixels(10.0))
-                .background_color(Color::rgb(45, 45, 55))
-                .corner_radius(Pixels(4.0));
+                .space(Pixels(5.0));
+            })
+            .space(Stretch(1.0))
+            .padding(Pixels(10.0))
+            .background_color(Color::rgb(45, 45, 55))
+            .corner_radius(Pixels(4.0));
 
             // Osc 2
             VStack::new(cx, |cx| {
@@ -252,12 +255,12 @@ pub(crate) fn create(
                             .font_size(12.0);
 
                         // Could use ParamButton for a two-state bool, but here it's an enum, so keep dropdown or a custom stepper if desired
-                        WaveformDropdown::new(cx, Data::params, |p| &p.waveform2)
+                        waveform_dropdown(cx, Data::params, |p| &p.waveform2)
                             .width(Pixels(100.0))
                             .height(Pixels(25.0));
                     })
-                        .height(Pixels(30.0))
-                        .space(Stretch(1.0));
+                    .height(Pixels(30.0))
+                    .space(Stretch(1.0));
 
                     HStack::new(cx, |cx| {
                         Label::new(cx, "Frequency")
@@ -268,8 +271,8 @@ pub(crate) fn create(
                             .width(Pixels(300.0))
                             .height(Pixels(20.0));
                     })
-                        .height(Pixels(25.0))
-                        .space(Stretch(1.0));
+                    .height(Pixels(25.0))
+                    .space(Stretch(1.0));
 
                     HStack::new(cx, |cx| {
                         Label::new(cx, "Gain")
@@ -280,16 +283,16 @@ pub(crate) fn create(
                             .width(Pixels(200.0))
                             .height(Pixels(20.0));
                     })
-                        .height(Pixels(25.0))
-                        .space(Stretch(1.0));
+                    .height(Pixels(25.0))
+                    .space(Stretch(1.0));
                 })
-                    .space(Stretch(1.0))
-                    .space(Pixels(5.0));
-            })
                 .space(Stretch(1.0))
-                .padding(Pixels(10.0))
-                .background_color(Color::rgb(45, 55, 45))
-                .corner_radius(Pixels(4.0));
+                .space(Pixels(5.0));
+            })
+            .space(Stretch(1.0))
+            .padding(Pixels(10.0))
+            .background_color(Color::rgb(45, 55, 45))
+            .corner_radius(Pixels(4.0));
 
             // Osc 3
             VStack::new(cx, |cx| {
@@ -306,12 +309,12 @@ pub(crate) fn create(
                             .height(Pixels(25.0))
                             .font_size(12.0);
 
-                        WaveformDropdown::new(cx, Data::params, |p| &p.waveform3)
+                        waveform_dropdown(cx, Data::params, |p| &p.waveform3)
                             .width(Pixels(100.0))
                             .height(Pixels(25.0));
                     })
-                        .height(Pixels(30.0))
-                        .space(Stretch(1.0));
+                    .height(Pixels(30.0))
+                    .space(Stretch(1.0));
 
                     HStack::new(cx, |cx| {
                         Label::new(cx, "Frequency")
@@ -322,8 +325,8 @@ pub(crate) fn create(
                             .width(Pixels(300.0))
                             .height(Pixels(20.0));
                     })
-                        .height(Pixels(25.0))
-                        .space(Stretch(1.0));
+                    .height(Pixels(25.0))
+                    .space(Stretch(1.0));
 
                     HStack::new(cx, |cx| {
                         Label::new(cx, "Gain")
@@ -334,20 +337,20 @@ pub(crate) fn create(
                             .width(Pixels(200.0))
                             .height(Pixels(20.0));
                     })
-                        .height(Pixels(25.0))
-                        .space(Stretch(1.0));
+                    .height(Pixels(25.0))
+                    .space(Stretch(1.0));
                 })
-                    .space(Stretch(1.0))
-                    .space(Pixels(5.0));
-            })
                 .space(Stretch(1.0))
-                .padding(Pixels(10.0))
-                .background_color(Color::rgb(55, 45, 45))
-                .corner_radius(Pixels(4.0));
-        })
-            .space(Pixels(12.0))
+                .space(Pixels(5.0));
+            })
             .space(Stretch(1.0))
-            .padding(Pixels(15.0))
-            .background_color(Color::rgb(30, 30, 35));
+            .padding(Pixels(10.0))
+            .background_color(Color::rgb(55, 45, 45))
+            .corner_radius(Pixels(4.0));
+        })
+        .space(Pixels(12.0))
+        .space(Stretch(1.0))
+        .padding(Pixels(15.0))
+        .background_color(Color::rgb(30, 30, 35));
     })
 }
