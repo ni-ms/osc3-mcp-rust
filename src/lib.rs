@@ -324,7 +324,6 @@ impl Plugin for SineSynth {
             }
         }
 
-        // Get waveform parameters - these are the actual enum values
         let waveform_params = [
             self.params.waveform1.value(),
             self.params.waveform2.value(),
