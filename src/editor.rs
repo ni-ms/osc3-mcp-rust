@@ -30,87 +30,108 @@ where
 {
     Dropdown::new(
         cx,
-        // Trigger button
+        // Trigger button - fixed to actually trigger dropdown
         {
             let params = params.clone();
             move |cx| {
-                HStack::new(cx, move |cx| {
-                    Label::new(
-                        cx,
-                        params.clone().map(move |p| {
-                            let param = map(&*p);
-                            waveform_to_str(&param.value()).to_string()
-                        }),
-                    )
-                    .width(Pixels(80.0))
-                    .height(Pixels(25.0))
-                    .alignment(Alignment::Center)
-                    .text_align(TextAlign::Center)
-                    .background_color(Color::rgb(60, 80, 120))
-                    .corner_radius(Pixels(3.0))
-                    .space(Stretch(1.0))
-                    .font_size(12.0)
-                    .color(Color::white());
-
-                    Label::new(cx, "▼")
-                        .width(Pixels(15.0))
+                Button::new(cx, |cx| {
+                    HStack::new(cx, move |cx| {
+                        Label::new(
+                            cx,
+                            params.clone().map(move |p| {
+                                let param = map(&*p);
+                                waveform_to_str(&param.value()).to_string()
+                            }),
+                        )
+                        .width(Pixels(70.0))
                         .height(Pixels(25.0))
-                        .alignment(Alignment::Center)
                         .text_align(TextAlign::Center)
+                        .font_size(12.0)
                         .color(Color::white())
-                        .font_size(10.0);
+                        .alignment(Alignment::Center);
+
+                        Label::new(cx, "▼")
+                            .width(Pixels(15.0))
+                            .height(Pixels(25.0))
+                            .alignment(Alignment::Center)
+                            .text_align(TextAlign::Center)
+                            .color(Color::white())
+                            .font_size(10.0);
+                    })
+                    .space(Pixels(5.0))
                 })
                 .width(Pixels(100.0))
                 .height(Pixels(25.0))
                 .background_color(Color::rgb(60, 80, 120))
                 .corner_radius(Pixels(3.0))
-                .cursor(CursorIcon::Hand);
+                .cursor(CursorIcon::Hand)
+                .on_press(move |cx| {
+                    cx.emit(PopupEvent::Switch);
+                });
             }
         },
-        // Dropdown content
+        // Dropdown content - fixed with reactive binding
         move |cx| {
-            VStack::new(cx, |cx| {
-                for option in [
-                    Waveform::Sine,
-                    Waveform::Square,
-                    Waveform::Triangle,
-                    Waveform::Sawtooth,
-                ] {
-                    Button::new(cx, |cx| {
-                        Label::new(cx, waveform_to_str(&option))
-                            .width(Pixels(120.0))
-                            .height(Pixels(22.0))
-                            .text_align(TextAlign::Center)
-                            .font_size(11.0)
-                            .color(Color::white())
-                    })
-                    .width(Pixels(120.0))
-                    .height(Pixels(22.0))
-                    .background_color(Color::rgb(70, 90, 130))
-                    .corner_radius(Pixels(2.0))
-                    .cursor(CursorIcon::Hand)
-                    .on_press(move |cx| {
-                        // Use the proper parameter event system
-                        if let Some(data) = cx.data::<Data>() {
-                            let param = map(&*data.params);
-                            let param_ptr = param.as_ptr();
-                            let normalized_value = param.preview_normalized(option);
+            Binding::new(cx, params.clone(), move |cx, params_lens| {
+                let params_data = params_lens.get(cx);
+                let current_param = map(&*params_data);
+                let current_value = current_param.value();
 
-                            cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
-                            cx.emit(RawParamEvent::SetParameterNormalized(
-                                param_ptr,
-                                normalized_value,
-                            ));
-                            cx.emit(RawParamEvent::EndSetParameter(param_ptr));
-                        }
-                        cx.emit(PopupEvent::Close);
-                    });
-                }
-            })
-            .background_color(Color::rgb(50, 60, 90))
-            .corner_radius(Pixels(3.0))
-            .border_width(Pixels(1.0))
-            .border_color(Color::rgb(80, 100, 140));
+                VStack::new(cx, |cx| {
+                    for option in [
+                        Waveform::Sine,
+                        Waveform::Square,
+                        Waveform::Triangle,
+                        Waveform::Sawtooth,
+                    ] {
+                        Button::new(cx, |cx| {
+                            HStack::new(cx, |cx| {
+                                // Show checkmark for current selection
+                                Label::new(cx, if option == current_value { "✓" } else { " " })
+                                    .width(Pixels(15.0))
+                                    .font_size(10.0)
+                                    .color(Color::white());
+
+                                Label::new(cx, waveform_to_str(&option))
+                                    .width(Pixels(90.0))
+                                    .text_align(TextAlign::Left)
+                                    .font_size(11.0)
+                                    .color(Color::white());
+                            })
+                            .space(Pixels(5.0))
+                        })
+                        .width(Pixels(120.0))
+                        .height(Pixels(22.0))
+                        .background_color(if option == current_value {
+                            Color::rgb(90, 110, 150)
+                        } else {
+                            Color::rgb(70, 90, 130)
+                        })
+                        .corner_radius(Pixels(2.0))
+                        .cursor(CursorIcon::Hand)
+                        .on_press(move |cx| {
+                            // Update parameter using proper event system
+                            if let Some(data) = cx.data::<Data>() {
+                                let param = map(&*data.params);
+                                let param_ptr = param.as_ptr();
+                                let normalized_value = param.preview_normalized(option);
+
+                                cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
+                                cx.emit(RawParamEvent::SetParameterNormalized(
+                                    param_ptr,
+                                    normalized_value,
+                                ));
+                                cx.emit(RawParamEvent::EndSetParameter(param_ptr));
+                            }
+                            cx.emit(PopupEvent::Close);
+                        });
+                    }
+                })
+                .background_color(Color::rgb(50, 60, 90))
+                .corner_radius(Pixels(3.0))
+                .border_width(Pixels(1.0))
+                .border_color(Color::rgb(80, 100, 140));
+            });
         },
     )
     .placement(Placement::Bottom)
