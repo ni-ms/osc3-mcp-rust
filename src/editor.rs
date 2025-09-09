@@ -5,8 +5,30 @@ use vizia_plug::widgets::*;
 use vizia_plug::{ViziaState, ViziaTheming, create_vizia_editor};
 
 use crate::{SineParams, Waveform};
-
 pub const NOTO_SANS: &str = "Noto Sans";
+
+struct ColorPalette;
+impl ColorPalette {
+    pub const BACKGROUND: Color = Color::rgb(18, 18, 22);
+    pub const SURFACE: Color = Color::rgb(24, 24, 28);
+    pub const SURFACE_ELEVATED: Color = Color::rgb(32, 32, 38);
+
+    pub const PRIMARY: Color = Color::rgb(99, 102, 241);
+    pub const PRIMARY_HOVER: Color = Color::rgb(79, 82, 221);
+    pub const PRIMARY_LIGHT: Color = Color::rgb(165, 180, 252);
+
+    pub const OSC1_ACCENT: Color = Color::rgb(59, 130, 246);
+    pub const OSC2_ACCENT: Color = Color::rgb(34, 197, 94);
+    pub const OSC3_ACCENT: Color = Color::rgb(239, 68, 68);
+
+    pub const TEXT_PRIMARY: Color = Color::rgb(248, 250, 252);
+    pub const TEXT_SECONDARY: Color = Color::rgb(148, 163, 184);
+    pub const TEXT_MUTED: Color = Color::rgb(100, 116, 139);
+
+    pub const BORDER: Color = Color::rgb(51, 65, 85);
+    pub const HOVER: Color = Color::rgb(30, 41, 59);
+    pub const ACTIVE: Color = Color::rgb(15, 23, 42);
+}
 
 #[derive(Lens)]
 struct Data {
@@ -16,7 +38,7 @@ struct Data {
 impl Model for Data {}
 
 pub(crate) fn default_state() -> Arc<ViziaState> {
-    ViziaState::new(|| (650, 550))
+    ViziaState::new(|| (600, 500))
 }
 
 fn waveform_dropdown<L>(
@@ -41,27 +63,22 @@ where
                                 waveform_to_str(&param.value()).to_string()
                             }),
                         )
-                        .width(Pixels(70.0))
-                        .height(Pixels(25.0))
                         .text_align(TextAlign::Center)
-                        .font_size(12.0)
-                        .color(Color::white())
-                        .alignment(Alignment::Center);
+                        .font_size(11.0)
+                        .color(ColorPalette::TEXT_PRIMARY);
 
                         Label::new(cx, "▼")
-                            .width(Pixels(15.0))
-                            .height(Pixels(25.0))
-                            .alignment(Alignment::Center)
-                            .text_align(TextAlign::Center)
-                            .color(Color::white())
-                            .font_size(10.0);
+                            .font_size(9.0)
+                            .color(ColorPalette::TEXT_SECONDARY);
                     })
-                    .space(Pixels(5.0))
+                    .space(Pixels(4.0))
                 })
-                .width(Pixels(100.0))
-                .height(Pixels(25.0))
-                .background_color(Color::rgb(60, 80, 120))
-                .corner_radius(Pixels(3.0))
+                .width(Pixels(90.0))
+                .height(Pixels(24.0))
+                .background_color(ColorPalette::SURFACE_ELEVATED)
+                .border_width(Pixels(1.0))
+                .border_color(ColorPalette::BORDER)
+                .corner_radius(Pixels(4.0))
                 .cursor(CursorIcon::Hand)
                 .on_press(move |cx| {
                     cx.emit(PopupEvent::Switch);
@@ -82,34 +99,22 @@ where
                         Waveform::Sawtooth,
                     ] {
                         Button::new(cx, |cx| {
-                            HStack::new(cx, |cx| {
-                                Label::new(cx, if option == current_value { "✓" } else { " " })
-                                    .width(Pixels(15.0))
-                                    .font_size(10.0)
-                                    .color(Color::white());
-
-                                Label::new(cx, waveform_to_str(&option))
-                                    .width(Pixels(90.0))
-                                    .text_align(TextAlign::Left)
-                                    .font_size(11.0)
-                                    .color(Color::white());
-                            })
-                            .space(Pixels(5.0))
+                            Label::new(cx, waveform_to_str(&option))
+                                .font_size(11.0)
+                                .color(ColorPalette::TEXT_PRIMARY)
                         })
-                        .width(Pixels(120.0))
+                        .width(Pixels(100.0))
                         .height(Pixels(22.0))
                         .background_color(if option == current_value {
-                            Color::rgb(90, 110, 150)
+                            ColorPalette::PRIMARY
                         } else {
-                            Color::rgb(70, 90, 130)
+                            Color::transparent()
                         })
-                        .corner_radius(Pixels(2.0))
                         .cursor(CursorIcon::Hand)
                         .on_press({
-                            let params_for_press = params.clone(); // ← Clone the lens
+                            let params_for_press = params.clone();
                             move |cx| {
-                                // Use lens.get(cx) instead of cx.data::<Data>()
-                                let params_arc = params_for_press.get(cx); // ← Direct lens access
+                                let params_arc = params_for_press.get(cx);
                                 let param = map(&*params_arc);
                                 let param_ptr = param.as_ptr();
                                 let normalized_value = param.preview_normalized(option);
@@ -126,14 +131,81 @@ where
                         });
                     }
                 })
-                .background_color(Color::rgb(50, 60, 90))
-                .corner_radius(Pixels(3.0))
+                .padding(Pixels(4.0))
+                .background_color(ColorPalette::SURFACE)
+                .corner_radius(Pixels(6.0))
                 .border_width(Pixels(1.0))
-                .border_color(Color::rgb(80, 100, 140));
+                .border_color(ColorPalette::BORDER);
             });
         },
     )
     .placement(Placement::Bottom)
+}
+
+fn create_oscillator_section(
+    cx: &mut Context,
+    title: &str,
+    accent_color: Color,
+    waveform_map: impl Fn(&SineParams) -> &EnumParam<Waveform> + Copy + Send + Sync + 'static,
+    freq_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
+    gain_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
+) {
+    VStack::new(cx, |cx| {
+        HStack::new(cx, |cx| {
+            Element::new(cx)
+                .width(Pixels(2.0))
+                .height(Pixels(14.0))
+                .background_color(accent_color);
+
+            Label::new(cx, title)
+                .font_size(12.0)
+                .font_weight(FontWeightKeyword::Medium)
+                .color(ColorPalette::TEXT_PRIMARY);
+        })
+        .space(Pixels(6.0))
+        .height(Pixels(18.0));
+
+        VStack::new(cx, |cx| {
+            HStack::new(cx, |cx| {
+                Label::new(cx, "Wave")
+                    .width(Pixels(50.0))
+                    .font_size(11.0)
+                    .color(ColorPalette::TEXT_PRIMARY);
+
+                waveform_dropdown(cx, Data::params, waveform_map);
+            })
+            .height(Pixels(26.0))
+            .alignment(Alignment::Center);
+
+            VStack::new(cx, |cx| {
+                Label::new(cx, "Frequency")
+                    .font_size(11.0)
+                    .color(ColorPalette::TEXT_PRIMARY)
+                    .height(Pixels(16.0));
+
+                ParamSlider::new(cx, Data::params, freq_map)
+                    .height(Pixels(8.0))
+                    .width(Stretch(1.0));
+            });
+
+            VStack::new(cx, |cx| {
+                Label::new(cx, "Gain")
+                    .font_size(11.0)
+                    .color(ColorPalette::TEXT_PRIMARY)
+                    .height(Pixels(16.0));
+
+                ParamSlider::new(cx, Data::params, gain_map)
+                    .height(Pixels(8.0))
+                    .width(Stretch(1.0));
+            });
+        })
+        .space(Pixels(6.0));
+    })
+    .padding(Pixels(10.0))
+    .background_color(ColorPalette::SURFACE)
+    .border_width(Pixels(1.0))
+    .border_color(ColorPalette::BORDER)
+    .corner_radius(Pixels(8.0));
 }
 
 fn waveform_to_str(w: &Waveform) -> &'static str {
@@ -158,156 +230,46 @@ pub(crate) fn create(
         .build(cx);
 
         VStack::new(cx, |cx| {
-            Label::new(cx, "Triple Oscillator Synth")
+            Label::new(cx, "TripleOsc")
                 .font_family(vec![FamilyOwned::Named(String::from(NOTO_SANS))])
                 .font_weight(FontWeightKeyword::Bold)
-                .font_size(22.0)
-                .height(Pixels(40.0))
-                .color(Color::rgb(240, 240, 240));
+                .font_size(16.0)
+                .color(ColorPalette::TEXT_PRIMARY)
+                .text_align(TextAlign::Center)
+                .height(Pixels(24.0));
 
             VStack::new(cx, |cx| {
-                Label::new(cx, "Oscillator 1")
-                    .font_weight(FontWeightKeyword::Bold)
-                    .font_size(14.0)
-                    .color(Color::rgb(150, 150, 255))
-                    .height(Pixels(25.0));
+                create_oscillator_section(
+                    cx,
+                    "Oscillator 1",
+                    ColorPalette::OSC1_ACCENT,
+                    |p| &p.waveform1,
+                    |p| &p.frequency1,
+                    |p| &p.gain1,
+                );
 
-                VStack::new(cx, |cx| {
-                    HStack::new(cx, |cx| {
-                        Label::new(cx, "Waveform")
-                            .width(Pixels(70.0))
-                            .height(Pixels(25.0))
-                            .font_size(12.0);
+                create_oscillator_section(
+                    cx,
+                    "Oscillator 2",
+                    ColorPalette::OSC2_ACCENT,
+                    |p| &p.waveform2,
+                    |p| &p.frequency2,
+                    |p| &p.gain2,
+                );
 
-                        waveform_dropdown(cx, Data::params, |p| &p.waveform1)
-                            .width(Pixels(100.0))
-                            .height(Pixels(25.0));
-                    })
-                    .height(Pixels(30.0));
-
-                    HStack::new(cx, |cx| {
-                        Label::new(cx, "Frequency")
-                            .width(Pixels(70.0))
-                            .height(Pixels(20.0))
-                            .font_size(12.0);
-                        ParamSlider::new(cx, Data::params, |p| &p.frequency1)
-                            .width(Pixels(300.0))
-                            .height(Pixels(20.0));
-                    })
-                    .height(Pixels(25.0));
-
-                    HStack::new(cx, |cx| {
-                        Label::new(cx, "Gain")
-                            .width(Pixels(70.0))
-                            .height(Pixels(20.0))
-                            .font_size(12.0);
-                        ParamSlider::new(cx, Data::params, |p| &p.gain1)
-                            .width(Pixels(200.0))
-                            .height(Pixels(20.0));
-                    })
-                    .height(Pixels(25.0));
-                });
+                create_oscillator_section(
+                    cx,
+                    "Oscillator 3",
+                    ColorPalette::OSC3_ACCENT,
+                    |p| &p.waveform3,
+                    |p| &p.frequency3,
+                    |p| &p.gain3,
+                );
             })
-            .padding(Pixels(10.0))
-            .background_color(Color::rgb(45, 45, 55))
-            .corner_radius(Pixels(4.0));
-
-            VStack::new(cx, |cx| {
-                Label::new(cx, "Oscillator 2")
-                    .font_weight(FontWeightKeyword::Bold)
-                    .font_size(14.0)
-                    .color(Color::rgb(150, 255, 150))
-                    .height(Pixels(25.0));
-
-                VStack::new(cx, |cx| {
-                    HStack::new(cx, |cx| {
-                        Label::new(cx, "Waveform")
-                            .width(Pixels(70.0))
-                            .height(Pixels(25.0))
-                            .font_size(12.0);
-
-                        waveform_dropdown(cx, Data::params, |p| &p.waveform2)
-                            .width(Pixels(100.0))
-                            .height(Pixels(25.0));
-                    })
-                    .height(Pixels(30.0));
-
-                    HStack::new(cx, |cx| {
-                        Label::new(cx, "Frequency")
-                            .width(Pixels(70.0))
-                            .height(Pixels(20.0))
-                            .font_size(12.0);
-                        ParamSlider::new(cx, Data::params, |p| &p.frequency2)
-                            .width(Pixels(300.0))
-                            .height(Pixels(20.0));
-                    })
-                    .height(Pixels(25.0));
-
-                    HStack::new(cx, |cx| {
-                        Label::new(cx, "Gain")
-                            .width(Pixels(70.0))
-                            .height(Pixels(20.0))
-                            .font_size(12.0);
-                        ParamSlider::new(cx, Data::params, |p| &p.gain2)
-                            .width(Pixels(200.0))
-                            .height(Pixels(20.0));
-                    })
-                    .height(Pixels(25.0));
-                });
-            })
-            .padding(Pixels(10.0))
-            .background_color(Color::rgb(45, 55, 45))
-            .corner_radius(Pixels(4.0));
-
-            VStack::new(cx, |cx| {
-                Label::new(cx, "Oscillator 3")
-                    .font_weight(FontWeightKeyword::Bold)
-                    .font_size(14.0)
-                    .color(Color::rgb(255, 150, 150))
-                    .height(Pixels(25.0));
-
-                VStack::new(cx, |cx| {
-                    HStack::new(cx, |cx| {
-                        Label::new(cx, "Waveform")
-                            .width(Pixels(70.0))
-                            .height(Pixels(25.0))
-                            .font_size(12.0);
-
-                        waveform_dropdown(cx, Data::params, |p| &p.waveform3)
-                            .width(Pixels(100.0))
-                            .height(Pixels(25.0));
-                    })
-                    .height(Pixels(30.0));
-
-                    HStack::new(cx, |cx| {
-                        Label::new(cx, "Frequency")
-                            .width(Pixels(70.0))
-                            .height(Pixels(20.0))
-                            .font_size(12.0);
-                        ParamSlider::new(cx, Data::params, |p| &p.frequency3)
-                            .width(Pixels(300.0))
-                            .height(Pixels(20.0));
-                    })
-                    .height(Pixels(25.0));
-
-                    HStack::new(cx, |cx| {
-                        Label::new(cx, "Gain")
-                            .width(Pixels(70.0))
-                            .height(Pixels(20.0))
-                            .font_size(12.0);
-                        ParamSlider::new(cx, Data::params, |p| &p.gain3)
-                            .width(Pixels(200.0))
-                            .height(Pixels(20.0));
-                    })
-                    .height(Pixels(25.0));
-                });
-            })
-            .padding(Pixels(10.0))
-            .background_color(Color::rgb(55, 45, 45))
-            .corner_radius(Pixels(4.0));
+            .space(Pixels(8.0));
         })
-        .space(Pixels(12.0))
-        .padding(Pixels(15.0))
-        .background_color(Color::rgb(30, 30, 35));
+        .padding(Pixels(12.0))
+        .background_color(ColorPalette::BACKGROUND)
+        .space(Pixels(8.0));
     })
 }
