@@ -73,29 +73,50 @@ pub struct SineParams {
     #[persist = "editor-state"]
     pub editor_state: Arc<ViziaState>,
 
+    // Oscillator 1
     #[id = "waveform1"]
     pub waveform1: EnumParam<Waveform>,
-
-    #[id = "waveform2"]
-    pub waveform2: EnumParam<Waveform>,
-
-    #[id = "waveform3"]
-    pub waveform3: EnumParam<Waveform>,
 
     #[id = "freq1"]
     pub frequency1: FloatParam,
 
+    #[id = "detune1"]
+    pub detune1: FloatParam,
+
+    #[id = "phase1"]
+    pub phase1: FloatParam,
+
     #[id = "gain1"]
     pub gain1: FloatParam,
+
+    // Oscillator 2
+    #[id = "waveform2"]
+    pub waveform2: EnumParam<Waveform>,
 
     #[id = "freq2"]
     pub frequency2: FloatParam,
 
+    #[id = "detune2"]
+    pub detune2: FloatParam,
+
+    #[id = "phase2"]
+    pub phase2: FloatParam,
+
     #[id = "gain2"]
     pub gain2: FloatParam,
 
+    // Oscillator 3
+    #[id = "waveform3"]
+    pub waveform3: EnumParam<Waveform>,
+
     #[id = "freq3"]
     pub frequency3: FloatParam,
+
+    #[id = "detune3"]
+    pub detune3: FloatParam,
+
+    #[id = "phase3"]
+    pub phase3: FloatParam,
 
     #[id = "gain3"]
     pub gain3: FloatParam,
@@ -105,9 +126,9 @@ impl Default for SineParams {
     fn default() -> Self {
         Self {
             editor_state: editor::default_state(),
+
+            // Oscillator 1
             waveform1: EnumParam::new("Waveform 1", Waveform::default()),
-            waveform2: EnumParam::new("Waveform 2", Waveform::default()),
-            waveform3: EnumParam::new("Waveform 3", Waveform::default()),
             frequency1: FloatParam::new(
                 "Frequency 1",
                 440.0,
@@ -117,10 +138,35 @@ impl Default for SineParams {
                     factor: 0.5,
                 },
             )
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" Hz")
-            .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
-            .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+                .with_smoother(SmoothingStyle::Logarithmic(50.0))
+                .with_unit(" Hz")
+                .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
+                .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+            detune1: FloatParam::new(
+                "Detune 1",
+                0.0,
+                FloatRange::Linear {
+                    min: -100.0,
+                    max: 100.0,
+                },
+            )
+                .with_smoother(SmoothingStyle::Linear(50.0))
+                .with_unit(" cents")
+                .with_value_to_string(formatters::v2s_f32_rounded(1)),
+            phase1: FloatParam::new(
+                "Phase 1",
+                0.0,
+                FloatRange::Linear {
+                    min: 0.0,
+                    max: 1.0,
+                },
+            )
+                .with_smoother(SmoothingStyle::Linear(50.0))
+                .with_unit("")
+                .with_value_to_string(Arc::new(|value| format!("{:.0}°", value * 360.0)))
+                .with_string_to_value(Arc::new(|string| {
+                    string.trim_end_matches('°').parse().ok().map(|x: f32| x / 360.0)
+                })),
             gain1: FloatParam::new(
                 "Gain 1",
                 util::db_to_gain(-6.0),
@@ -129,10 +175,13 @@ impl Default for SineParams {
                     max: util::db_to_gain(0.0),
                 },
             )
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" dB")
-            .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
-            .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+                .with_smoother(SmoothingStyle::Logarithmic(50.0))
+                .with_unit(" dB")
+                .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
+                .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+
+            // Oscillator 2
+            waveform2: EnumParam::new("Waveform 2", Waveform::default()),
             frequency2: FloatParam::new(
                 "Frequency 2",
                 440.0,
@@ -142,10 +191,35 @@ impl Default for SineParams {
                     factor: 0.5,
                 },
             )
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" Hz")
-            .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
-            .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+                .with_smoother(SmoothingStyle::Logarithmic(50.0))
+                .with_unit(" Hz")
+                .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
+                .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+            detune2: FloatParam::new(
+                "Detune 2",
+                0.0,
+                FloatRange::Linear {
+                    min: -100.0,
+                    max: 100.0,
+                },
+            )
+                .with_smoother(SmoothingStyle::Linear(50.0))
+                .with_unit(" cents")
+                .with_value_to_string(formatters::v2s_f32_rounded(1)),
+            phase2: FloatParam::new(
+                "Phase 2",
+                0.0,
+                FloatRange::Linear {
+                    min: 0.0,
+                    max: 1.0,
+                },
+            )
+                .with_smoother(SmoothingStyle::Linear(50.0))
+                .with_unit("")
+                .with_value_to_string(Arc::new(|value| format!("{:.0}°", value * 360.0)))
+                .with_string_to_value(Arc::new(|string| {
+                    string.trim_end_matches('°').parse().ok().map(|x: f32| x / 360.0)
+                })),
             gain2: FloatParam::new(
                 "Gain 2",
                 util::db_to_gain(-6.0),
@@ -154,10 +228,13 @@ impl Default for SineParams {
                     max: util::db_to_gain(0.0),
                 },
             )
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" dB")
-            .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
-            .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+                .with_smoother(SmoothingStyle::Logarithmic(50.0))
+                .with_unit(" dB")
+                .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
+                .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+
+            // Oscillator 3
+            waveform3: EnumParam::new("Waveform 3", Waveform::default()),
             frequency3: FloatParam::new(
                 "Frequency 3",
                 440.0,
@@ -167,10 +244,35 @@ impl Default for SineParams {
                     factor: 0.5,
                 },
             )
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" Hz")
-            .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
-            .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+                .with_smoother(SmoothingStyle::Logarithmic(50.0))
+                .with_unit(" Hz")
+                .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
+                .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+            detune3: FloatParam::new(
+                "Detune 3",
+                0.0,
+                FloatRange::Linear {
+                    min: -100.0,
+                    max: 100.0,
+                },
+            )
+                .with_smoother(SmoothingStyle::Linear(50.0))
+                .with_unit(" cents")
+                .with_value_to_string(formatters::v2s_f32_rounded(1)),
+            phase3: FloatParam::new(
+                "Phase 3",
+                0.0,
+                FloatRange::Linear {
+                    min: 0.0,
+                    max: 1.0,
+                },
+            )
+                .with_smoother(SmoothingStyle::Linear(50.0))
+                .with_unit("")
+                .with_value_to_string(Arc::new(|value| format!("{:.0}°", value * 360.0)))
+                .with_string_to_value(Arc::new(|string| {
+                    string.trim_end_matches('°').parse().ok().map(|x: f32| x / 360.0)
+                })),
             gain3: FloatParam::new(
                 "Gain 3",
                 util::db_to_gain(-6.0),
@@ -179,10 +281,10 @@ impl Default for SineParams {
                     max: util::db_to_gain(0.0),
                 },
             )
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" dB")
-            .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
-            .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+                .with_smoother(SmoothingStyle::Logarithmic(50.0))
+                .with_unit(" dB")
+                .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
+                .with_string_to_value(formatters::s2v_f32_gain_to_db()),
         }
     }
 }
@@ -337,6 +439,20 @@ impl Plugin for SineSynth {
                 self.params.gain3.smoothed.next(),
             ];
 
+            // Get detune values (in cents)
+            let detunes = [
+                self.params.detune1.smoothed.next(),
+                self.params.detune2.smoothed.next(),
+                self.params.detune3.smoothed.next(),
+            ];
+
+            // Get phase offsets (0-1, representing 0-360°)
+            let phase_offsets = [
+                self.params.phase1.smoothed.next() * TAU,
+                self.params.phase2.smoothed.next() * TAU,
+                self.params.phase3.smoothed.next() * TAU,
+            ];
+
             let mut sample = 0.0;
             let mut active_voice_count = 0;
 
@@ -351,26 +467,34 @@ impl Plugin for SineSynth {
                             2 => self.params.frequency3.smoothed.next() / 440.0,
                             _ => 1.0,
                         };
-                        let target_freq = voice.target_freqs[i] * freq_multiplier;
+
+                        // Apply detune: convert cents to frequency ratio (100 cents = 1 semitone)
+                        let detune_multiplier = 2.0_f32.powf(detunes[i] / 1200.0);
+
+                        let target_freq = voice.target_freqs[i] * freq_multiplier * detune_multiplier;
                         voice.current_freqs[i] = voice.freq_smoothers[i].next(target_freq);
                     }
 
                     let mut voice_sample = 0.0;
                     for i in 0..3 {
                         let phase_incr = (voice.current_freqs[i] / self.sample_rate) * TAU;
+
+                        // Apply phase offset
+                        let current_phase = voice.phases[i] + phase_offsets[i];
+
                         let osc_sample = match waveform_params[i] {
-                            Waveform::Sine => voice.phases[i].sin(),
+                            Waveform::Sine => current_phase.sin(),
                             Waveform::Square => {
-                                if voice.phases[i] < std::f32::consts::PI {
+                                if current_phase % TAU < std::f32::consts::PI {
                                     1.0
                                 } else {
                                     -1.0
                                 }
                             }
                             Waveform::Triangle => {
-                                (2.0 * (voice.phases[i] / TAU) - 1.0).abs() * 2.0 - 1.0
+                                (2.0 * ((current_phase % TAU) / TAU) - 1.0).abs() * 2.0 - 1.0
                             }
-                            Waveform::Sawtooth => (voice.phases[i] / TAU) * 2.0 - 1.0,
+                            Waveform::Sawtooth => ((current_phase % TAU) / TAU) * 2.0 - 1.0,
                         };
 
                         voice_sample += osc_sample * gains[i];

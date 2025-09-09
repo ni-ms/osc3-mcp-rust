@@ -11,7 +11,7 @@ Working in fl studio v25.1.1
 Todo:
 - Migrate to vizia
 - Finish pending tasks:
-- Add phase offset / detune
+- Add phase offset / detune - DONE
 - Add an adsr
 - Add a noise option
 - Custom waves (Using bezier?)
