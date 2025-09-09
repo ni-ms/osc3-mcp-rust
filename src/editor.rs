@@ -19,18 +19,16 @@ pub(crate) fn default_state() -> Arc<ViziaState> {
     ViziaState::new(|| (650, 550))
 }
 
-// Simple dropdown for waveform selection
 fn waveform_dropdown<L>(
     cx: &mut Context,
     params: L,
     map: impl Fn(&SineParams) -> &EnumParam<Waveform> + Copy + Send + Sync + 'static,
 ) -> Handle<'_, impl View>
 where
-    L: Lens<Target = Arc<SineParams>> + Clone + 'static,
+    L: Lens<Target = Arc<SineParams>> + Clone + 'static + Send + Sync,
 {
     Dropdown::new(
         cx,
-        // Trigger button - fixed to actually trigger dropdown
         {
             let params = params.clone();
             move |cx| {
@@ -70,7 +68,6 @@ where
                 });
             }
         },
-        // Dropdown content - fixed with reactive binding
         move |cx| {
             Binding::new(cx, params.clone(), move |cx, params_lens| {
                 let params_data = params_lens.get(cx);
@@ -86,7 +83,6 @@ where
                     ] {
                         Button::new(cx, |cx| {
                             HStack::new(cx, |cx| {
-                                // Show checkmark for current selection
                                 Label::new(cx, if option == current_value { "✓" } else { " " })
                                     .width(Pixels(15.0))
                                     .font_size(10.0)
@@ -109,10 +105,12 @@ where
                         })
                         .corner_radius(Pixels(2.0))
                         .cursor(CursorIcon::Hand)
-                        .on_press(move |cx| {
-                            // Update parameter using proper event system
-                            if let Some(data) = cx.data::<Data>() {
-                                let param = map(&*data.params);
+                        .on_press({
+                            let params_for_press = params.clone(); // ← Clone the lens
+                            move |cx| {
+                                // Use lens.get(cx) instead of cx.data::<Data>()
+                                let params_arc = params_for_press.get(cx); // ← Direct lens access
+                                let param = map(&*params_arc);
                                 let param_ptr = param.as_ptr();
                                 let normalized_value = param.preview_normalized(option);
 
@@ -122,8 +120,9 @@ where
                                     normalized_value,
                                 ));
                                 cx.emit(RawParamEvent::EndSetParameter(param_ptr));
+
+                                cx.emit(PopupEvent::Close);
                             }
-                            cx.emit(PopupEvent::Close);
                         });
                     }
                 })
@@ -166,7 +165,6 @@ pub(crate) fn create(
                 .height(Pixels(40.0))
                 .color(Color::rgb(240, 240, 240));
 
-            // Oscillator 1
             VStack::new(cx, |cx| {
                 Label::new(cx, "Oscillator 1")
                     .font_weight(FontWeightKeyword::Bold)
@@ -214,7 +212,6 @@ pub(crate) fn create(
             .background_color(Color::rgb(45, 45, 55))
             .corner_radius(Pixels(4.0));
 
-            // Oscillator 2
             VStack::new(cx, |cx| {
                 Label::new(cx, "Oscillator 2")
                     .font_weight(FontWeightKeyword::Bold)
@@ -262,7 +259,6 @@ pub(crate) fn create(
             .background_color(Color::rgb(45, 55, 45))
             .corner_radius(Pixels(4.0));
 
-            // Oscillator 3
             VStack::new(cx, |cx| {
                 Label::new(cx, "Oscillator 3")
                     .font_weight(FontWeightKeyword::Bold)
