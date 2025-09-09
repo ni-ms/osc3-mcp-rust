@@ -38,7 +38,7 @@ struct Data {
 impl Model for Data {}
 
 pub(crate) fn default_state() -> Arc<ViziaState> {
-    ViziaState::new(|| (600, 650)) // Increased height to accommodate new sliders
+    ViziaState::new(|| (600, 650))
 }
 
 fn waveform_dropdown<L>(
@@ -63,26 +63,26 @@ where
                                 waveform_to_str(&param.value()).to_string()
                             }),
                         )
-                            .text_align(TextAlign::Center)
-                            .font_size(11.0)
-                            .color(ColorPalette::TEXT_PRIMARY);
+                        .text_align(TextAlign::Center)
+                        .font_size(11.0)
+                        .color(ColorPalette::TEXT_PRIMARY);
 
                         Label::new(cx, "▼")
                             .font_size(9.0)
                             .color(ColorPalette::TEXT_SECONDARY);
                     })
-                        .space(Pixels(4.0))
+                    .space(Pixels(4.0))
                 })
-                    .width(Pixels(90.0))
-                    .height(Pixels(24.0))
-                    .background_color(ColorPalette::SURFACE_ELEVATED)
-                    .border_width(Pixels(1.0))
-                    .border_color(ColorPalette::BORDER)
-                    .corner_radius(Pixels(4.0))
-                    .cursor(CursorIcon::Hand)
-                    .on_press(move |cx| {
-                        cx.emit(PopupEvent::Switch);
-                    });
+                .width(Pixels(90.0))
+                .height(Pixels(24.0))
+                .background_color(ColorPalette::SURFACE_ELEVATED)
+                .border_width(Pixels(1.0))
+                .border_color(ColorPalette::BORDER)
+                .corner_radius(Pixels(4.0))
+                .cursor(CursorIcon::Hand)
+                .on_press(move |cx| {
+                    cx.emit(PopupEvent::Switch);
+                });
             }
         },
         move |cx| {
@@ -103,43 +103,43 @@ where
                                 .font_size(11.0)
                                 .color(ColorPalette::TEXT_PRIMARY)
                         })
-                            .width(Pixels(100.0))
-                            .height(Pixels(22.0))
-                            .background_color(if option == current_value {
-                                ColorPalette::PRIMARY
-                            } else {
-                                Color::transparent()
-                            })
-                            .cursor(CursorIcon::Hand)
-                            .on_press({
-                                let params_for_press = params.clone();
-                                move |cx| {
-                                    let params_arc = params_for_press.get(cx);
-                                    let param = map(&*params_arc);
-                                    let param_ptr = param.as_ptr();
-                                    let normalized_value = param.preview_normalized(option);
+                        .width(Pixels(100.0))
+                        .height(Pixels(22.0))
+                        .background_color(if option == current_value {
+                            ColorPalette::PRIMARY
+                        } else {
+                            Color::transparent()
+                        })
+                        .cursor(CursorIcon::Hand)
+                        .on_press({
+                            let params_for_press = params.clone();
+                            move |cx| {
+                                let params_arc = params_for_press.get(cx);
+                                let param = map(&*params_arc);
+                                let param_ptr = param.as_ptr();
+                                let normalized_value = param.preview_normalized(option);
 
-                                    cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
-                                    cx.emit(RawParamEvent::SetParameterNormalized(
-                                        param_ptr,
-                                        normalized_value,
-                                    ));
-                                    cx.emit(RawParamEvent::EndSetParameter(param_ptr));
+                                cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
+                                cx.emit(RawParamEvent::SetParameterNormalized(
+                                    param_ptr,
+                                    normalized_value,
+                                ));
+                                cx.emit(RawParamEvent::EndSetParameter(param_ptr));
 
-                                    cx.emit(PopupEvent::Close);
-                                }
-                            });
+                                cx.emit(PopupEvent::Close);
+                            }
+                        });
                     }
                 })
-                    .padding(Pixels(4.0))
-                    .background_color(ColorPalette::SURFACE)
-                    .corner_radius(Pixels(6.0))
-                    .border_width(Pixels(1.0))
-                    .border_color(ColorPalette::BORDER);
+                .padding(Pixels(4.0))
+                .background_color(ColorPalette::SURFACE)
+                .corner_radius(Pixels(6.0))
+                .border_width(Pixels(1.0))
+                .border_color(ColorPalette::BORDER);
             });
         },
     )
-        .placement(Placement::Bottom)
+    .placement(Placement::Bottom)
 }
 
 fn create_oscillator_section(
@@ -149,8 +149,16 @@ fn create_oscillator_section(
     waveform_map: impl Fn(&SineParams) -> &EnumParam<Waveform> + Copy + Send + Sync + 'static,
     freq_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
     gain_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
-    phase_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
-    detune_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
+    phase_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam
+    + Copy
+    + Send
+    + Sync
+    + 'static,
+    detune_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam
+    + Copy
+    + Send
+    + Sync
+    + 'static,
 ) {
     VStack::new(cx, |cx| {
         HStack::new(cx, |cx| {
@@ -164,8 +172,8 @@ fn create_oscillator_section(
                 .font_weight(FontWeightKeyword::Medium)
                 .color(ColorPalette::TEXT_PRIMARY);
         })
-            .space(Pixels(6.0))
-            .height(Pixels(18.0));
+        .space(Pixels(6.0))
+        .height(Pixels(18.0));
 
         VStack::new(cx, |cx| {
             HStack::new(cx, |cx| {
@@ -176,8 +184,8 @@ fn create_oscillator_section(
 
                 waveform_dropdown(cx, Data::params, waveform_map);
             })
-                .height(Pixels(26.0))
-                .alignment(Alignment::Center);
+            .height(Pixels(26.0))
+            .alignment(Alignment::Center);
 
             VStack::new(cx, |cx| {
                 Label::new(cx, "Frequency")
@@ -223,13 +231,13 @@ fn create_oscillator_section(
                     .width(Stretch(1.0));
             });
         })
-            .space(Pixels(6.0));
+        .space(Pixels(6.0));
     })
-        .padding(Pixels(10.0))
-        .background_color(ColorPalette::SURFACE)
-        .border_width(Pixels(1.0))
-        .border_color(ColorPalette::BORDER)
-        .corner_radius(Pixels(8.0));
+    .padding(Pixels(10.0))
+    .background_color(ColorPalette::SURFACE)
+    .border_width(Pixels(1.0))
+    .border_color(ColorPalette::BORDER)
+    .corner_radius(Pixels(8.0));
 }
 
 fn waveform_to_str(w: &Waveform) -> &'static str {
@@ -251,7 +259,7 @@ pub(crate) fn create(
         Data {
             params: params.clone(),
         }
-            .build(cx);
+        .build(cx);
 
         VStack::new(cx, |cx| {
             Label::new(cx, "TripleOsc")
@@ -270,8 +278,8 @@ pub(crate) fn create(
                     |p| &p.waveform1,
                     |p| &p.frequency1,
                     |p| &p.gain1,
-                    |p| &p.phase1,      // Add phase parameter mapping
-                    |p| &p.detune1,     // Add detune parameter mapping
+                    |p| &p.phase1,
+                    |p| &p.detune1,
                 );
 
                 create_oscillator_section(
@@ -281,8 +289,8 @@ pub(crate) fn create(
                     |p| &p.waveform2,
                     |p| &p.frequency2,
                     |p| &p.gain2,
-                    |p| &p.phase2,      // Add phase parameter mapping
-                    |p| &p.detune2,     // Add detune parameter mapping
+                    |p| &p.phase2,
+                    |p| &p.detune2,
                 );
 
                 create_oscillator_section(
@@ -292,14 +300,14 @@ pub(crate) fn create(
                     |p| &p.waveform3,
                     |p| &p.frequency3,
                     |p| &p.gain3,
-                    |p| &p.phase3,      // Add phase parameter mapping
-                    |p| &p.detune3,     // Add detune parameter mapping
+                    |p| &p.phase3,
+                    |p| &p.detune3,
                 );
             })
-                .space(Pixels(8.0));
-        })
-            .padding(Pixels(12.0))
-            .background_color(ColorPalette::BACKGROUND)
             .space(Pixels(8.0));
+        })
+        .padding(Pixels(12.0))
+        .background_color(ColorPalette::BACKGROUND)
+        .space(Pixels(8.0));
     })
 }
