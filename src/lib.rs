@@ -7,6 +7,7 @@ use std::sync::Arc;
 use vizia_plug::ViziaState;
 
 mod editor;
+mod tab_switcher;
 
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Waveform {

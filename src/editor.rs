@@ -254,7 +254,7 @@ pub(crate) fn create(
     editor_state: Arc<ViziaState>,
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
-        vizia_plug::widgets::register_theme(cx);
+        register_theme(cx);
 
         Data {
             params: params.clone(),
