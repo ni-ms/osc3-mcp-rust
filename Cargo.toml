@@ -3,7 +3,7 @@ name = "osc3-mcp-rust"
 version = "0.1.16"
 edition = "2024"
 license = "MIT"
-description = "A cool synthesizer plugin built with Rust and egui"
+description = "A cool synthesizer plugin built with Rust"
 readme = "README.md"
 
 [workspace]
@@ -11,7 +11,8 @@ members = ["xtask"]
 
 [dependencies]
 nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", features = ["assert_process_allocs", "standalone"] }
-nih_plug_egui = { git = "https://github.com/robbert-vdh/nih-plug.git" }
+vizia_plug = { git = "https://github.com/vizia/vizia-plug.git", branch = "main"}
+fluent-bundle = "0.15.3"
 
 [lib]
 crate-type = ["cdylib", "lib"]
