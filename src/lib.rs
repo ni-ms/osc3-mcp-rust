@@ -8,6 +8,7 @@ use vizia_plug::ViziaState;
 
 mod editor;
 mod tab_switcher;
+mod knob;
 
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Waveform {

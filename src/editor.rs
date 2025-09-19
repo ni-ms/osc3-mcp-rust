@@ -4,7 +4,9 @@ use vizia_plug::vizia::prelude::*;
 use vizia_plug::widgets::*;
 use vizia_plug::{ViziaState, ViziaTheming, create_vizia_editor};
 
+use crate::knob::ParamKnob;
 use crate::{SineParams, Waveform};
+
 pub const NOTO_SANS: &str = "Noto Sans";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -291,51 +293,81 @@ fn create_oscillator_section(
             .height(Pixels(26.0))
             .alignment(Alignment::Center);
 
-            VStack::new(cx, |cx| {
-                Label::new(cx, "Frequency")
-                    .font_size(11.0)
-                    .color(ColorPalette::TEXT_PRIMARY)
-                    .height(Pixels(16.0));
+            HStack::new(cx, |cx| {
+                // Left column
+                VStack::new(cx, |cx| {
+                    VStack::new(cx, |cx| {
+                        Label::new(cx, "Frequency")
+                            .font_size(11.0)
+                            .color(ColorPalette::TEXT_PRIMARY)
+                            .height(Pixels(14.0))
+                            .text_align(TextAlign::Center);
 
-                ParamSlider::new(cx, Data::params, freq_map)
-                    .height(Pixels(8.0))
-                    .width(Stretch(1.0));
-            });
+                        ParamKnob::new(cx, Data::params, freq_map)
+                            .width(Pixels(50.0))
+                            .height(Pixels(50.0));
+                    })
+                    .space(Pixels(2.0))
+                    .alignment(Alignment::Center)
+                    .width(Pixels(60.0))
+                    .height(Pixels(70.0));
 
-            VStack::new(cx, |cx| {
-                Label::new(cx, "Detune")
-                    .font_size(11.0)
-                    .color(ColorPalette::TEXT_PRIMARY)
-                    .height(Pixels(16.0));
+                    VStack::new(cx, |cx| {
+                        Label::new(cx, "Detune")
+                            .font_size(11.0)
+                            .color(ColorPalette::TEXT_PRIMARY)
+                            .height(Pixels(14.0))
+                            .text_align(TextAlign::Center);
 
-                ParamSlider::new(cx, Data::params, detune_map)
-                    .height(Pixels(8.0))
-                    .width(Stretch(1.0));
-            });
+                        ParamKnob::new(cx, Data::params, detune_map)
+                            .width(Pixels(50.0))
+                            .height(Pixels(50.0));
+                    })
+                    .space(Pixels(2.0))
+                    .alignment(Alignment::Center)
+                    .width(Pixels(60.0))
+                    .height(Pixels(70.0));
+                })
+                .space(Pixels(15.0));
+                VStack::new(cx, |cx| {
+                    VStack::new(cx, |cx| {
+                        Label::new(cx, "Phase")
+                            .font_size(11.0)
+                            .color(ColorPalette::TEXT_PRIMARY)
+                            .height(Pixels(14.0))
+                            .text_align(TextAlign::Center);
 
-            VStack::new(cx, |cx| {
-                Label::new(cx, "Phase Offset")
-                    .font_size(11.0)
-                    .color(ColorPalette::TEXT_PRIMARY)
-                    .height(Pixels(16.0));
+                        ParamKnob::new(cx, Data::params, phase_map)
+                            .width(Pixels(50.0))
+                            .height(Pixels(50.0));
+                    })
+                    .space(Pixels(2.0))
+                    .alignment(Alignment::Center)
+                    .width(Pixels(60.0))
+                    .height(Pixels(70.0));
 
-                ParamSlider::new(cx, Data::params, phase_map)
-                    .height(Pixels(8.0))
-                    .width(Stretch(1.0));
-            });
+                    VStack::new(cx, |cx| {
+                        Label::new(cx, "Gain")
+                            .font_size(11.0)
+                            .color(ColorPalette::TEXT_PRIMARY)
+                            .height(Pixels(14.0))
+                            .text_align(TextAlign::Center);
 
-            VStack::new(cx, |cx| {
-                Label::new(cx, "Gain")
-                    .font_size(11.0)
-                    .color(ColorPalette::TEXT_PRIMARY)
-                    .height(Pixels(16.0));
-
-                ParamSlider::new(cx, Data::params, gain_map)
-                    .height(Pixels(8.0))
-                    .width(Stretch(1.0));
-            });
+                        ParamKnob::new(cx, Data::params, gain_map)
+                            .width(Pixels(50.0)) // Reduced knob size
+                            .height(Pixels(50.0));
+                    })
+                    .space(Pixels(2.0))
+                    .alignment(Alignment::Center)
+                    .width(Pixels(60.0))
+                    .height(Pixels(70.0));
+                })
+                .space(Pixels(15.0));
+            })
+            .space(Pixels(20.0))
+            .alignment(Alignment::Center);
         })
-        .space(Pixels(6.0));
+        .space(Pixels(12.0));
     })
     .padding(Pixels(10.0))
     .background_color(ColorPalette::SURFACE)
@@ -359,7 +391,62 @@ pub(crate) fn create(
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
         register_theme(cx);
+        cx.add_stylesheet(
+            "
+                .param-knob {
+            cursor: ns-resize;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            width: 50px;
+            height: 50px;
+        }
 
+        .knob-background {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid #333;
+            background-color: #222;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .knob-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 2px;
+            height: 15px;
+            border-radius: 1px;
+            background-color: #ccc;
+            transform-origin: bottom center;
+            transform: translate(-50%, -100%) rotate(-135deg);
+            transition: background-color 0.2s, transform 0.2s;
+        }
+
+
+        .param-knob:hover .knob-background {
+            border-color: #8b5cf6;
+            background-color: #18181c;
+        }
+
+        .param-knob:hover .knob-indicator {
+            background-color: #8b5cf6;
+        }
+
+        .param-knob:active .knob-background {
+            border-color: #a855f7;
+            background-color: #0f172a;
+        }
+
+        .param-knob:active .knob-indicator {
+            background-color: #a855f7;
+        }
+    ",
+        )
+        .expect("Failed to load stylesheet");
         Data {
             params: params.clone(),
         }
