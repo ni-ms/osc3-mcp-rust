@@ -1,4 +1,4 @@
-use nih_plug::prelude::{Editor, Enum, EnumParam, Param};
+use nih_plug::prelude::{Editor, EnumParam, Param};
 use std::sync::Arc;
 use vizia_plug::vizia::prelude::*;
 use vizia_plug::widgets::*;
@@ -6,6 +6,110 @@ use vizia_plug::{ViziaState, ViziaTheming, create_vizia_editor};
 
 use crate::{SineParams, Waveform};
 pub const NOTO_SANS: &str = "Noto Sans";
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TabId {
+    Oscillators,
+    Envelope,
+}
+
+impl TabId {
+    fn to_index(self) -> i32 {
+        match self {
+            TabId::Oscillators => 0,
+            TabId::Envelope => 1,
+        }
+    }
+
+    fn from_index(index: i32) -> Self {
+        match index {
+            0 => TabId::Oscillators,
+            1 => TabId::Envelope,
+            _ => TabId::Oscillators,
+        }
+    }
+}
+
+#[derive(Lens, Clone)]
+pub struct TabSwitcherData {
+    pub active_tab: i32,
+}
+
+pub enum TabSwitcherEvent {
+    SetActiveTab(TabId),
+}
+
+impl Model for TabSwitcherData {
+    fn event(&mut self, _cx: &mut EventContext, event: &mut Event) {
+        event.map(|tab_event, _| match tab_event {
+            TabSwitcherEvent::SetActiveTab(tab_id) => {
+                self.active_tab = tab_id.to_index();
+            }
+        });
+    }
+}
+
+impl TabSwitcherData {
+    pub fn new() -> Self {
+        Self {
+            active_tab: TabId::Oscillators.to_index(),
+        }
+    }
+}
+
+pub struct TabSwitcher;
+
+impl TabSwitcher {
+    pub fn new<F>(cx: &mut Context, content_builder: F) -> Handle<impl View>
+    where
+        F: Fn(&mut Context, TabId) + 'static,
+    {
+        TabSwitcherData::new().build(cx);
+
+        VStack::new(cx, |cx| {
+            HStack::new(cx, |cx| {
+                Self::tab_button(cx, "Oscillators", TabId::Oscillators);
+                Self::tab_button(cx, "Envelope", TabId::Envelope);
+            })
+            .height(Pixels(40.0))
+            .background_color(ColorPalette::SURFACE)
+            .border_width(Pixels(1.0))
+            .border_color(ColorPalette::BORDER);
+
+            Binding::new(
+                cx,
+                TabSwitcherData::active_tab,
+                move |cx, active_tab_index| {
+                    let tab_id = TabId::from_index(active_tab_index.get(cx));
+                    content_builder(cx, tab_id);
+                },
+            );
+        })
+    }
+
+    fn tab_button<'a>(cx: &'a mut Context, label: &str, tab_id: TabId) -> Handle<'a, impl View> {
+        Button::new(cx, |cx| {
+            Label::new(cx, label)
+                .font_size(12.0)
+                .color(ColorPalette::TEXT_PRIMARY)
+        })
+        .height(Stretch(1.0))
+        .width(Pixels(120.0))
+        .background_color(TabSwitcherData::active_tab.map(move |active_index| {
+            if TabId::from_index(*active_index) == tab_id {
+                ColorPalette::PRIMARY
+            } else {
+                Color::transparent()
+            }
+        }))
+        .border_width(Pixels(0.0))
+        .corner_radius(Pixels(0.0))
+        .cursor(CursorIcon::Hand)
+        .on_press(move |cx| {
+            cx.emit(TabSwitcherEvent::SetActiveTab(tab_id));
+        })
+    }
+}
 
 struct ColorPalette;
 impl ColorPalette {
@@ -270,41 +374,118 @@ pub(crate) fn create(
                 .text_align(TextAlign::Center)
                 .height(Pixels(24.0));
 
-            VStack::new(cx, |cx| {
-                create_oscillator_section(
-                    cx,
-                    "Oscillator 1",
-                    ColorPalette::OSC1_ACCENT,
-                    |p| &p.waveform1,
-                    |p| &p.frequency1,
-                    |p| &p.gain1,
-                    |p| &p.phase1,
-                    |p| &p.detune1,
-                );
+            TabSwitcher::new(cx, |cx, tab_id| match tab_id {
+                TabId::Oscillators => {
+                    VStack::new(cx, |cx| {
+                        create_oscillator_section(
+                            cx,
+                            "Oscillator 1",
+                            ColorPalette::OSC1_ACCENT,
+                            |p| &p.waveform1,
+                            |p| &p.frequency1,
+                            |p| &p.gain1,
+                            |p| &p.phase1,
+                            |p| &p.detune1,
+                        );
 
-                create_oscillator_section(
-                    cx,
-                    "Oscillator 2",
-                    ColorPalette::OSC2_ACCENT,
-                    |p| &p.waveform2,
-                    |p| &p.frequency2,
-                    |p| &p.gain2,
-                    |p| &p.phase2,
-                    |p| &p.detune2,
-                );
+                        create_oscillator_section(
+                            cx,
+                            "Oscillator 2",
+                            ColorPalette::OSC2_ACCENT,
+                            |p| &p.waveform2,
+                            |p| &p.frequency2,
+                            |p| &p.gain2,
+                            |p| &p.phase2,
+                            |p| &p.detune2,
+                        );
 
-                create_oscillator_section(
-                    cx,
-                    "Oscillator 3",
-                    ColorPalette::OSC3_ACCENT,
-                    |p| &p.waveform3,
-                    |p| &p.frequency3,
-                    |p| &p.gain3,
-                    |p| &p.phase3,
-                    |p| &p.detune3,
-                );
+                        create_oscillator_section(
+                            cx,
+                            "Oscillator 3",
+                            ColorPalette::OSC3_ACCENT,
+                            |p| &p.waveform3,
+                            |p| &p.frequency3,
+                            |p| &p.gain3,
+                            |p| &p.phase3,
+                            |p| &p.detune3,
+                        );
+                    })
+                    .space(Pixels(8.0));
+                }
+
+                TabId::Envelope => {
+                    VStack::new(cx, |cx| {
+                        Label::new(cx, "Envelope Controls")
+                            .font_size(14.0)
+                            .font_weight(FontWeightKeyword::Medium)
+                            .color(ColorPalette::TEXT_PRIMARY)
+                            .text_align(TextAlign::Center);
+
+                        VStack::new(cx, |cx| {
+                            VStack::new(cx, |cx| {
+                                Label::new(cx, "Attack")
+                                    .font_size(11.0)
+                                    .color(ColorPalette::TEXT_PRIMARY)
+                                    .height(Pixels(16.0));
+
+                                Element::new(cx)
+                                    .height(Pixels(8.0))
+                                    .width(Stretch(1.0))
+                                    .background_color(ColorPalette::SURFACE_ELEVATED)
+                                    .corner_radius(Pixels(4.0));
+                            });
+
+                            VStack::new(cx, |cx| {
+                                Label::new(cx, "Decay")
+                                    .font_size(11.0)
+                                    .color(ColorPalette::TEXT_PRIMARY)
+                                    .height(Pixels(16.0));
+
+                                Element::new(cx)
+                                    .height(Pixels(8.0))
+                                    .width(Stretch(1.0))
+                                    .background_color(ColorPalette::SURFACE_ELEVATED)
+                                    .corner_radius(Pixels(4.0));
+                            });
+
+                            VStack::new(cx, |cx| {
+                                Label::new(cx, "Sustain")
+                                    .font_size(11.0)
+                                    .color(ColorPalette::TEXT_PRIMARY)
+                                    .height(Pixels(16.0));
+
+                                Element::new(cx)
+                                    .height(Pixels(8.0))
+                                    .width(Stretch(1.0))
+                                    .background_color(ColorPalette::SURFACE_ELEVATED)
+                                    .corner_radius(Pixels(4.0));
+                            });
+
+                            VStack::new(cx, |cx| {
+                                Label::new(cx, "Release")
+                                    .font_size(11.0)
+                                    .color(ColorPalette::TEXT_PRIMARY)
+                                    .height(Pixels(16.0));
+
+                                Element::new(cx)
+                                    .height(Pixels(8.0))
+                                    .width(Stretch(1.0))
+                                    .background_color(ColorPalette::SURFACE_ELEVATED)
+                                    .corner_radius(Pixels(4.0));
+                            });
+                        })
+                        .space(Pixels(12.0))
+                        .padding(Pixels(16.0))
+                        .background_color(ColorPalette::SURFACE)
+                        .border_width(Pixels(1.0))
+                        .border_color(ColorPalette::BORDER)
+                        .corner_radius(Pixels(8.0));
+                    })
+                    .space(Pixels(16.0));
+                }
             })
-            .space(Pixels(8.0));
+            .width(Stretch(1.0))
+            .height(Stretch(1.0));
         })
         .padding(Pixels(12.0))
         .background_color(ColorPalette::BACKGROUND)
