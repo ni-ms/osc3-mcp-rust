@@ -30,14 +30,13 @@ impl ParamKnob {
         }
         .build(cx, |cx| {
             Element::new(cx)
-                .width(Pixels(50.0))
-                .height(Pixels(50.0))
+                .width(Pixels(40.0))
+                .height(Pixels(40.0))
                 .background_color(Color::rgb(32, 32, 38))
                 .border_width(Pixels(2.0))
                 .border_color(Color::rgb(99, 102, 241))
                 .corner_radius(Percentage(50.0));
-
-
+            
             Binding::new(
                 cx,
                 ParamWidgetBase::make_lens(params, params_to_param, |param| {
@@ -47,15 +46,18 @@ impl ParamKnob {
                     let angle = -135.0 + (normalized_value.get(cx) * 270.0);
                     Element::new(cx)
                         .width(Pixels(2.0))
-                        .height(Pixels(18.0))
+                        .height(Pixels(15.0))
                         .background_color(Color::rgb(248, 250, 252))
                         .corner_radius(Pixels(1.0))
+                        .position_type(PositionType::Absolute)
+                        .left(Pixels(19.0))
+                        .top(Pixels(12.0))
                         .rotate(Angle::Deg(angle));
                 },
             );
         })
-        .width(Pixels(50.0))
-        .height(Pixels(50.0))
+        .width(Pixels(40.0))
+        .height(Pixels(40.0))
         .class("param-knob")
     }
 }

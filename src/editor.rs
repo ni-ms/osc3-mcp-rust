@@ -272,7 +272,6 @@ fn create_oscillator_section(
                 .width(Pixels(2.0))
                 .height(Pixels(14.0))
                 .background_color(accent_color);
-
             Label::new(cx, title)
                 .font_size(12.0)
                 .font_weight(FontWeightKeyword::Medium)
@@ -287,89 +286,85 @@ fn create_oscillator_section(
                     .width(Pixels(50.0))
                     .font_size(11.0)
                     .color(ColorPalette::TEXT_PRIMARY);
-
                 waveform_dropdown(cx, Data::params, waveform_map);
             })
             .height(Pixels(26.0))
             .alignment(Alignment::Center);
 
             HStack::new(cx, |cx| {
-                // Left column
+
                 VStack::new(cx, |cx| {
                     VStack::new(cx, |cx| {
                         Label::new(cx, "Frequency")
-                            .font_size(11.0)
+                            .font_size(10.0)
                             .color(ColorPalette::TEXT_PRIMARY)
-                            .height(Pixels(14.0))
+                            .height(Pixels(12.0))
                             .text_align(TextAlign::Center);
-
                         ParamKnob::new(cx, Data::params, freq_map)
-                            .width(Pixels(50.0))
-                            .height(Pixels(50.0));
+                            .width(Pixels(40.0))
+                            .height(Pixels(40.0));
                     })
                     .space(Pixels(2.0))
                     .alignment(Alignment::Center)
-                    .width(Pixels(60.0))
-                    .height(Pixels(70.0));
+                    .width(Pixels(50.0))
+                    .height(Pixels(60.0));
 
                     VStack::new(cx, |cx| {
                         Label::new(cx, "Detune")
-                            .font_size(11.0)
+                            .font_size(10.0)
                             .color(ColorPalette::TEXT_PRIMARY)
-                            .height(Pixels(14.0))
+                            .height(Pixels(12.0))
                             .text_align(TextAlign::Center);
-
                         ParamKnob::new(cx, Data::params, detune_map)
-                            .width(Pixels(50.0))
-                            .height(Pixels(50.0));
+                            .width(Pixels(40.0))
+                            .height(Pixels(40.0));
                     })
                     .space(Pixels(2.0))
                     .alignment(Alignment::Center)
-                    .width(Pixels(60.0))
-                    .height(Pixels(70.0));
+                    .width(Pixels(50.0))
+                    .height(Pixels(60.0));
                 })
-                .space(Pixels(15.0));
+                .space(Pixels(10.0));
+
                 VStack::new(cx, |cx| {
                     VStack::new(cx, |cx| {
                         Label::new(cx, "Phase")
-                            .font_size(11.0)
+                            .font_size(10.0)
                             .color(ColorPalette::TEXT_PRIMARY)
-                            .height(Pixels(14.0))
+                            .height(Pixels(12.0))
                             .text_align(TextAlign::Center);
-
                         ParamKnob::new(cx, Data::params, phase_map)
-                            .width(Pixels(50.0))
-                            .height(Pixels(50.0));
+                            .width(Pixels(40.0))
+                            .height(Pixels(40.0));
                     })
                     .space(Pixels(2.0))
                     .alignment(Alignment::Center)
-                    .width(Pixels(60.0))
-                    .height(Pixels(70.0));
+                    .width(Pixels(50.0))
+                    .height(Pixels(60.0));
 
                     VStack::new(cx, |cx| {
                         Label::new(cx, "Gain")
-                            .font_size(11.0)
+                            .font_size(10.0)
                             .color(ColorPalette::TEXT_PRIMARY)
-                            .height(Pixels(14.0))
+                            .height(Pixels(12.0))
                             .text_align(TextAlign::Center);
-
                         ParamKnob::new(cx, Data::params, gain_map)
-                            .width(Pixels(50.0)) // Reduced knob size
-                            .height(Pixels(50.0));
+                            .width(Pixels(40.0))
+                            .height(Pixels(40.0));
                     })
                     .space(Pixels(2.0))
                     .alignment(Alignment::Center)
-                    .width(Pixels(60.0))
-                    .height(Pixels(70.0));
+                    .width(Pixels(50.0))
+                    .height(Pixels(60.0));
                 })
-                .space(Pixels(15.0));
+                .space(Pixels(10.0));
             })
-            .space(Pixels(20.0))
+            .space(Pixels(15.0))
             .alignment(Alignment::Center);
         })
-        .space(Pixels(12.0));
+        .space(Pixels(8.0));
     })
-    .padding(Pixels(10.0))
+    .padding(Pixels(8.0))
     .background_color(ColorPalette::SURFACE)
     .border_width(Pixels(1.0))
     .border_color(ColorPalette::BORDER)
@@ -391,62 +386,10 @@ pub(crate) fn create(
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
         register_theme(cx);
-        cx.add_stylesheet(
-            "
-                .param-knob {
-            cursor: ns-resize;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            width: 50px;
-            height: 50px;
-        }
 
-        .knob-background {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            border: 2px solid #333;
-            background-color: #222;
-            transition: background-color 0.2s, border-color 0.2s;
-        }
-
-        .knob-indicator {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 2px;
-            height: 15px;
-            border-radius: 1px;
-            background-color: #ccc;
-            transform-origin: bottom center;
-            transform: translate(-50%, -100%) rotate(-135deg);
-            transition: background-color 0.2s, transform 0.2s;
-        }
-
-
-        .param-knob:hover .knob-background {
-            border-color: #8b5cf6;
-            background-color: #18181c;
-        }
-
-        .param-knob:hover .knob-indicator {
-            background-color: #8b5cf6;
-        }
-
-        .param-knob:active .knob-background {
-            border-color: #a855f7;
-            background-color: #0f172a;
-        }
-
-        .param-knob:active .knob-indicator {
-            background-color: #a855f7;
-        }
-    ",
-        )
-        .expect("Failed to load stylesheet");
+        //TODO: Make sure this works
+        cx.add_stylesheet("assets/knob.css")
+            .expect("Failed to load stylesheet");
         Data {
             params: params.clone(),
         }

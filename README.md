@@ -15,4 +15,10 @@ Todo:
 - Add an adsr
 - Add a noise option
 - Custom waves (Using bezier?)
-- Reverb option
+- Reverb option Frequency gain, phase, detune
+- add wt position
+- inspiration: 
+![img_1.png](img_1.png)
+- Multiple wavetable oscillators (2–3 minimum)
+-  WaveTable Position, Phase, Coarse/Fine tuning, Volume
+-  Unison: Detune, Blend, Spread, Phase Randomization
