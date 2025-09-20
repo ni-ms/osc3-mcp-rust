@@ -295,7 +295,7 @@ fn create_oscillator_section(
     + 'static,
 ) {
     VStack::new(cx, |cx| {
-        // Compact header
+        
         HStack::new(cx, |cx| {
             Element::new(cx)
                 .width(Pixels(2.0))
@@ -318,7 +318,7 @@ fn create_oscillator_section(
             match tab_id {
                 "wave" => {
                     VStack::new(cx, |cx| {
-                        // Wave selection and octave in one row
+                        
                         HStack::new(cx, |cx| {
                             Label::new(cx, "Wave")
                                 .width(Pixels(35.0))
@@ -331,7 +331,7 @@ fn create_oscillator_section(
                         .height(Pixels(30.0))
                         .alignment(Alignment::Center);
 
-                        // Compact knobs layout - 2x2 grid
+                        
                         VStack::new(cx, |cx| {
                             HStack::new(cx, |cx| {
                                 VStack::new(cx, |cx| {
@@ -410,7 +410,7 @@ fn create_oscillator_section(
                             .height(Pixels(12.0))
                             .text_align(TextAlign::Center);
 
-                        // 2x2 layout for unison knobs
+                        
                         VStack::new(cx, |cx| {
                             HStack::new(cx, |cx| {
                                 VStack::new(cx, |cx| {
@@ -489,9 +489,9 @@ fn create_oscillator_section(
                 }
             }
         })
-        .height(Pixels(110.0)); // Reduced from 160px to 110px
+        .height(Pixels(110.0)); 
     })
-    .padding(Pixels(6.0)) // Reduced from 8px
+    .padding(Pixels(6.0)) 
     .background_color(ColorPalette::SURFACE)
     .border_width(Pixels(1.0))
     .border_color(ColorPalette::BORDER)
@@ -525,10 +525,10 @@ pub(crate) fn create(
             Label::new(cx, "TripleOsc")
                 .font_family(vec![FamilyOwned::Named(String::from(NOTO_SANS))])
                 .font_weight(FontWeightKeyword::Bold)
-                .font_size(15.0) // Slightly smaller
+                .font_size(15.0) 
                 .color(ColorPalette::TEXT_PRIMARY)
                 .text_align(TextAlign::Center)
-                .height(Pixels(20.0)); // Reduced from 24px
+                .height(Pixels(20.0)); 
 
             let tabs = vec![
                 TabDefinition::new("oscillators", "Oscillators").with_width(120.0),
@@ -586,7 +586,7 @@ pub(crate) fn create(
                             |p| &p.unison_volume3,
                         );
                     })
-                    .space(Pixels(5.0)); // Reduced from 8px
+                    .space(Pixels(5.0)); 
                 }
 
                 "envelope" => {
@@ -670,8 +670,8 @@ pub(crate) fn create(
             .width(Stretch(1.0))
             .height(Stretch(1.0));
         })
-        .padding(Pixels(10.0)) // Reduced from 12px
+        .padding(Pixels(10.0)) 
         .background_color(ColorPalette::BACKGROUND)
-        .space(Pixels(6.0)); // Reduced from 8px
+        .space(Pixels(6.0)); 
     })
 }
