@@ -7,8 +7,8 @@ use std::sync::Arc;
 use vizia_plug::ViziaState;
 
 mod editor;
-mod tab_switcher;
 mod knob;
+mod tab_switcher;
 
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Waveform {
@@ -122,6 +122,15 @@ pub struct SineParams {
 
     #[id = "gain3"]
     pub gain3: FloatParam,
+
+    #[id = "octave1"]
+    pub octave1: IntParam,
+
+    #[id = "octave2"]
+    pub octave2: IntParam,
+
+    #[id = "octave3"]
+    pub octave3: IntParam,
 }
 
 impl Default for SineParams {
@@ -278,6 +287,15 @@ impl Default for SineParams {
             .with_unit(" dB")
             .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
             .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+            octave1: IntParam::new(
+                "Octave 1",
+                0, // Default to 0 (no octave shift)
+                IntRange::Linear { min: -4, max: 4 },
+            ),
+
+            octave2: IntParam::new("Octave 2", 0, IntRange::Linear { min: -4, max: 4 }),
+
+            octave3: IntParam::new("Octave 3", 0, IntRange::Linear { min: -4, max: 4 }),
         }
     }
 }

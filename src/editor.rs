@@ -147,6 +147,111 @@ pub(crate) fn default_state() -> Arc<ViziaState> {
     ViziaState::new(|| (600, 650))
 }
 
+// Octave counter widget
+fn octave_counter<L>(
+    cx: &mut Context,
+    params: L,
+    octave_map: impl Fn(&SineParams) -> &nih_plug::prelude::IntParam + Copy + Send + Sync + 'static,
+) -> Handle<'_, impl View>
+where
+    L: Lens<Target = Arc<SineParams>> + Clone + 'static + Send + Sync,
+{
+    VStack::new(cx, |cx| {
+        Label::new(cx, "Octave")
+            .font_size(10.0)
+            .color(ColorPalette::TEXT_PRIMARY)
+            .height(Pixels(12.0))
+            .text_align(TextAlign::Center);
+
+        HStack::new(cx, |cx| {
+            // Decrement button
+            Button::new(cx, |cx| {
+                Label::new(cx, "−")
+                    .font_size(14.0)
+                    .color(ColorPalette::TEXT_PRIMARY)
+            })
+            .width(Pixels(18.0))
+            .height(Pixels(22.0))
+            .background_color(ColorPalette::SURFACE_ELEVATED)
+            .border_width(Pixels(1.0))
+            .border_color(ColorPalette::BORDER)
+            .corner_radius(Pixels(3.0))
+            .cursor(CursorIcon::Hand)
+            .on_press({
+                let params = params.clone();
+                move |cx| {
+                    let params_arc = params.get(cx);
+                    let param = octave_map(&*params_arc);
+                    let param_ptr = param.as_ptr();
+                    let current_value = param.modulated_plain_value();
+                    let new_value = (current_value - 1).max(-4); // Use hardcoded min value
+                    let normalized_value = param.preview_normalized(new_value);
+
+                    cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
+                    cx.emit(RawParamEvent::SetParameterNormalized(param_ptr, normalized_value));
+                    cx.emit(RawParamEvent::EndSetParameter(param_ptr));
+                }
+            });
+
+            // Value display
+            Label::new(cx,
+                params.clone().map(move |p| {
+                    let param = octave_map(&*p);
+                    let value = param.modulated_plain_value();
+                    if value >= 0 {
+                        format!("+{}", value)
+                    } else {
+                        format!("{}", value)
+                    }
+                })
+            )
+            .width(Pixels(32.0))
+            .height(Pixels(22.0))
+            .background_color(ColorPalette::SURFACE)
+            .border_width(Pixels(1.0))
+            .border_color(ColorPalette::BORDER)
+            .font_size(10.0)
+            .color(ColorPalette::TEXT_PRIMARY)
+            .text_align(TextAlign::Center);
+
+            // Increment button
+            Button::new(cx, |cx| {
+                Label::new(cx, "+")
+                    .font_size(14.0)
+                    .color(ColorPalette::TEXT_PRIMARY)
+            })
+            .width(Pixels(18.0))
+            .height(Pixels(22.0))
+            .background_color(ColorPalette::SURFACE_ELEVATED)
+            .border_width(Pixels(1.0))
+            .border_color(ColorPalette::BORDER)
+            .corner_radius(Pixels(3.0))
+            .cursor(CursorIcon::Hand)
+            .on_press({
+                let params = params.clone();
+                move |cx| {
+                    let params_arc = params.get(cx);
+                    let param = octave_map(&*params_arc);
+                    let param_ptr = param.as_ptr();
+                    let current_value = param.modulated_plain_value();
+                    let new_value = (current_value + 1).min(4); // Use hardcoded max value
+                    let normalized_value = param.preview_normalized(new_value);
+
+                    cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
+                    cx.emit(RawParamEvent::SetParameterNormalized(param_ptr, normalized_value));
+                    cx.emit(RawParamEvent::EndSetParameter(param_ptr));
+                }
+            });
+        })
+        .space(Pixels(0.0))
+        .alignment(Alignment::Center);
+    })
+    .space(Pixels(2.0))
+    .alignment(Alignment::Center)
+    .width(Pixels(68.0))
+    .height(Pixels(36.0))
+}
+
 fn waveform_dropdown<L>(
     cx: &mut Context,
     params: L,
@@ -265,6 +370,7 @@ fn create_oscillator_section(
     + Send
     + Sync
     + 'static,
+    octave_map: impl Fn(&SineParams) -> &nih_plug::prelude::IntParam + Copy + Send + Sync + 'static,
 ) {
     VStack::new(cx, |cx| {
         HStack::new(cx, |cx| {
@@ -287,12 +393,15 @@ fn create_oscillator_section(
                     .font_size(11.0)
                     .color(ColorPalette::TEXT_PRIMARY);
                 waveform_dropdown(cx, Data::params, waveform_map);
+
+                Element::new(cx).width(Pixels(15.0)); // Spacer
+
+                octave_counter(cx, Data::params, octave_map);
             })
-            .height(Pixels(26.0))
+            .height(Pixels(40.0))
             .alignment(Alignment::Center);
 
             HStack::new(cx, |cx| {
-
                 VStack::new(cx, |cx| {
                     VStack::new(cx, |cx| {
                         Label::new(cx, "Frequency")
@@ -309,6 +418,7 @@ fn create_oscillator_section(
                     .width(Pixels(50.0))
                     .height(Pixels(60.0));
 
+                    //TODO: Is detune the same as fine tune?
                     VStack::new(cx, |cx| {
                         Label::new(cx, "Detune")
                             .font_size(10.0)
@@ -416,6 +526,7 @@ pub(crate) fn create(
                             |p| &p.gain1,
                             |p| &p.phase1,
                             |p| &p.detune1,
+                            |p| &p.octave1, // New octave parameter
                         );
 
                         create_oscillator_section(
@@ -427,6 +538,7 @@ pub(crate) fn create(
                             |p| &p.gain2,
                             |p| &p.phase2,
                             |p| &p.detune2,
+                            |p| &p.octave2, // New octave parameter
                         );
 
                         create_oscillator_section(
@@ -438,6 +550,7 @@ pub(crate) fn create(
                             |p| &p.gain3,
                             |p| &p.phase3,
                             |p| &p.detune3,
+                            |p| &p.octave3, // New octave parameter
                         );
                     })
                     .space(Pixels(8.0));
