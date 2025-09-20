@@ -75,7 +75,6 @@ pub struct SineParams {
     #[persist = "editor-state"]
     pub editor_state: Arc<ViziaState>,
 
-    // Oscillator 1
     #[id = "waveform1"]
     pub waveform1: EnumParam<Waveform>,
 
@@ -91,7 +90,6 @@ pub struct SineParams {
     #[id = "gain1"]
     pub gain1: FloatParam,
 
-    // Oscillator 2
     #[id = "waveform2"]
     pub waveform2: EnumParam<Waveform>,
 
@@ -107,7 +105,6 @@ pub struct SineParams {
     #[id = "gain2"]
     pub gain2: FloatParam,
 
-    // Oscillator 3
     #[id = "waveform3"]
     pub waveform3: EnumParam<Waveform>,
 
@@ -131,6 +128,33 @@ pub struct SineParams {
 
     #[id = "octave3"]
     pub octave3: IntParam,
+
+    #[id = "unison_voices1"]
+    pub unison_voices1: IntParam,
+    #[id = "unison_detune1"]
+    pub unison_detune1: FloatParam,
+    #[id = "unison_blend1"]
+    pub unison_blend1: FloatParam,
+    #[id = "unison_volume1"]
+    pub unison_volume1: FloatParam,
+
+    #[id = "unison_voices2"]
+    pub unison_voices2: IntParam,
+    #[id = "unison_detune2"]
+    pub unison_detune2: FloatParam,
+    #[id = "unison_blend2"]
+    pub unison_blend2: FloatParam,
+    #[id = "unison_volume2"]
+    pub unison_volume2: FloatParam,
+
+    #[id = "unison_voices3"]
+    pub unison_voices3: IntParam,
+    #[id = "unison_detune3"]
+    pub unison_detune3: FloatParam,
+    #[id = "unison_blend3"]
+    pub unison_blend3: FloatParam,
+    #[id = "unison_volume3"]
+    pub unison_volume3: FloatParam,
 }
 
 impl Default for SineParams {
@@ -138,7 +162,6 @@ impl Default for SineParams {
         Self {
             editor_state: editor::default_state(),
 
-            // Oscillator 1
             waveform1: EnumParam::new("Waveform 1", Waveform::default()),
             frequency1: FloatParam::new(
                 "Frequency 1",
@@ -188,7 +211,6 @@ impl Default for SineParams {
             .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
             .with_string_to_value(formatters::s2v_f32_gain_to_db()),
 
-            // Oscillator 2
             waveform2: EnumParam::new("Waveform 2", Waveform::default()),
             frequency2: FloatParam::new(
                 "Frequency 2",
@@ -238,7 +260,6 @@ impl Default for SineParams {
             .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
             .with_string_to_value(formatters::s2v_f32_gain_to_db()),
 
-            // Oscillator 3
             waveform3: EnumParam::new("Waveform 3", Waveform::default()),
             frequency3: FloatParam::new(
                 "Frequency 3",
@@ -287,15 +308,122 @@ impl Default for SineParams {
             .with_unit(" dB")
             .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
             .with_string_to_value(formatters::s2v_f32_gain_to_db()),
-            octave1: IntParam::new(
-                "Octave 1",
-                0, // Default to 0 (no octave shift)
-                IntRange::Linear { min: -4, max: 4 },
-            ),
+            octave1: IntParam::new("Octave 1", 0, IntRange::Linear { min: -4, max: 4 }),
 
             octave2: IntParam::new("Octave 2", 0, IntRange::Linear { min: -4, max: 4 }),
 
             octave3: IntParam::new("Octave 3", 0, IntRange::Linear { min: -4, max: 4 }),
+
+            unison_voices1: IntParam::new(
+                "Unison Voices 1",
+                1,
+                IntRange::Linear { min: 1, max: 8 },
+            )
+            .with_unit(" voices"),
+
+            unison_detune1: FloatParam::new(
+                "Unison Detune 1",
+                0.0,
+                FloatRange::Linear {
+                    min: 0.0,
+                    max: 50.0,
+                },
+            )
+            .with_smoother(SmoothingStyle::Linear(50.0))
+            .with_unit(" cents")
+            .with_value_to_string(formatters::v2s_f32_rounded(1)),
+
+            unison_blend1: FloatParam::new(
+                "Unison Blend 1",
+                0.0,
+                FloatRange::Linear { min: 0.0, max: 1.0 },
+            )
+            .with_smoother(SmoothingStyle::Linear(50.0))
+            .with_value_to_string(formatters::v2s_f32_percentage(1))
+            .with_string_to_value(formatters::s2v_f32_percentage()),
+
+            unison_volume1: FloatParam::new(
+                "Unison Volume 1",
+                1.0,
+                FloatRange::Linear { min: 0.0, max: 1.0 },
+            )
+            .with_smoother(SmoothingStyle::Linear(50.0))
+            .with_value_to_string(formatters::v2s_f32_percentage(1))
+            .with_string_to_value(formatters::s2v_f32_percentage()),
+
+            unison_voices2: IntParam::new(
+                "Unison Voices 2",
+                1,
+                IntRange::Linear { min: 1, max: 8 },
+            )
+            .with_unit(" voices"),
+
+            unison_detune2: FloatParam::new(
+                "Unison Detune 2",
+                0.0,
+                FloatRange::Linear {
+                    min: 0.0,
+                    max: 50.0,
+                },
+            )
+            .with_smoother(SmoothingStyle::Linear(50.0))
+            .with_unit(" cents")
+            .with_value_to_string(formatters::v2s_f32_rounded(1)),
+
+            unison_blend2: FloatParam::new(
+                "Unison Blend 2",
+                0.0,
+                FloatRange::Linear { min: 0.0, max: 1.0 },
+            )
+            .with_smoother(SmoothingStyle::Linear(50.0))
+            .with_value_to_string(formatters::v2s_f32_percentage(1))
+            .with_string_to_value(formatters::s2v_f32_percentage()),
+
+            unison_volume2: FloatParam::new(
+                "Unison Volume 2",
+                1.0,
+                FloatRange::Linear { min: 0.0, max: 1.0 },
+            )
+            .with_smoother(SmoothingStyle::Linear(50.0))
+            .with_value_to_string(formatters::v2s_f32_percentage(1))
+            .with_string_to_value(formatters::s2v_f32_percentage()),
+
+            unison_voices3: IntParam::new(
+                "Unison Voices 3",
+                1,
+                IntRange::Linear { min: 1, max: 8 },
+            )
+            .with_unit(" voices"),
+
+            unison_detune3: FloatParam::new(
+                "Unison Detune 3",
+                0.0,
+                FloatRange::Linear {
+                    min: 0.0,
+                    max: 50.0,
+                },
+            )
+            .with_smoother(SmoothingStyle::Linear(50.0))
+            .with_unit(" cents")
+            .with_value_to_string(formatters::v2s_f32_rounded(1)),
+
+            unison_blend3: FloatParam::new(
+                "Unison Blend 3",
+                0.0,
+                FloatRange::Linear { min: 0.0, max: 1.0 },
+            )
+            .with_smoother(SmoothingStyle::Linear(50.0))
+            .with_value_to_string(formatters::v2s_f32_percentage(1))
+            .with_string_to_value(formatters::s2v_f32_percentage()),
+
+            unison_volume3: FloatParam::new(
+                "Unison Volume 3",
+                1.0,
+                FloatRange::Linear { min: 0.0, max: 1.0 },
+            )
+            .with_smoother(SmoothingStyle::Linear(50.0))
+            .with_value_to_string(formatters::v2s_f32_percentage(1))
+            .with_string_to_value(formatters::s2v_f32_percentage()),
         }
     }
 }
@@ -450,14 +578,12 @@ impl Plugin for SineSynth {
                 self.params.gain3.smoothed.next(),
             ];
 
-            // Get detune values (in cents)
             let detunes = [
                 self.params.detune1.smoothed.next(),
                 self.params.detune2.smoothed.next(),
                 self.params.detune3.smoothed.next(),
             ];
 
-            // Get phase offsets (0-1, representing 0-360°)
             let phase_offsets = [
                 self.params.phase1.smoothed.next() * TAU,
                 self.params.phase2.smoothed.next() * TAU,
@@ -479,7 +605,6 @@ impl Plugin for SineSynth {
                             _ => 1.0,
                         };
 
-                        // Apply detune: convert cents to frequency ratio (100 cents = 1 semitone)
                         let detune_multiplier = 2.0_f32.powf(detunes[i] / 1200.0);
 
                         let target_freq =
@@ -491,7 +616,6 @@ impl Plugin for SineSynth {
                     for i in 0..3 {
                         let phase_incr = (voice.current_freqs[i] / self.sample_rate) * TAU;
 
-                        // Apply phase offset
                         let current_phase = voice.phases[i] + phase_offsets[i];
 
                         let osc_sample = match waveform_params[i] {
