@@ -11,6 +11,24 @@ mod knob;
 mod tab_switcher;
 
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterMode {
+    #[id = "lowpass"]
+    LowPass,
+    #[id = "highpass"]
+    HighPass,
+    #[id = "bandpass"]
+    BandPass,
+    #[id = "notch"]
+    Notch,
+}
+
+impl Default for FilterMode {
+    fn default() -> Self {
+        Self::LowPass
+    }
+}
+
+#[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Waveform {
     #[id = "sine"]
     Sine,
@@ -155,6 +173,19 @@ pub struct SineParams {
     pub unison_blend3: FloatParam,
     #[id = "unison_volume3"]
     pub unison_volume3: FloatParam,
+
+    // Filter parameters
+    #[id = "filter_mode"]
+    pub filter_mode: EnumParam<FilterMode>,
+
+    #[id = "filter_cutoff"]
+    pub filter_cutoff: FloatParam,
+
+    #[id = "filter_resonance"]
+    pub filter_resonance: FloatParam,
+
+    #[id = "filter_drive"]
+    pub filter_drive: FloatParam,
 }
 
 impl Default for SineParams {
@@ -424,6 +455,38 @@ impl Default for SineParams {
             .with_smoother(SmoothingStyle::Linear(50.0))
             .with_value_to_string(formatters::v2s_f32_percentage(1))
             .with_string_to_value(formatters::s2v_f32_percentage()),
+            filter_mode: EnumParam::new("Filter Mode", FilterMode::LowPass),
+
+            filter_cutoff: FloatParam::new(
+                "Filter Cutoff",
+                20000.0,
+                FloatRange::Skewed {
+                    min: 20.0,
+                    max: 20000.0,
+                    factor: FloatRange::skew_factor(-2.0),
+                },
+            )
+            .with_unit(" Hz")
+            .with_value_to_string(formatters::v2s_f32_hz_then_khz(0))
+            .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+
+            filter_resonance: FloatParam::new(
+                "Filter Resonance",
+                0.0,
+                FloatRange::Linear { min: 0.0, max: 1.0 },
+            )
+            .with_unit("%")
+            .with_value_to_string(formatters::v2s_f32_hz_then_khz(0))
+            .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
+
+            filter_drive: FloatParam::new(
+                "Filter Drive",
+                0.0,
+                FloatRange::Linear { min: 0.0, max: 1.0 },
+            )
+            .with_unit("%")
+            .with_value_to_string(formatters::v2s_f32_hz_then_khz(0))
+            .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
         }
     }
 }
