@@ -55,42 +55,42 @@ where
 {
     VStack::new(cx, |cx| {
         Label::new(cx, "Octave")
-            .font_size(10.0)
+            .font_size(9.0)
             .color(ColorPalette::TEXT_PRIMARY)
-            .height(Pixels(12.0))
+            .height(Pixels(10.0))
             .text_align(TextAlign::Center);
 
         HStack::new(cx, |cx| {
             Button::new(cx, |cx| {
                 Label::new(cx, "−")
-                    .font_size(14.0)
+                    .font_size(12.0)
                     .color(ColorPalette::TEXT_PRIMARY)
             })
-                .width(Pixels(18.0))
-                .height(Pixels(22.0))
-                .background_color(ColorPalette::SURFACE_ELEVATED)
-                .border_width(Pixels(1.0))
-                .border_color(ColorPalette::BORDER)
-                .corner_radius(Pixels(3.0))
-                .cursor(CursorIcon::Hand)
-                .on_press({
-                    let params = params.clone();
-                    move |cx| {
-                        let params_arc = params.get(cx);
-                        let param = octave_map(&*params_arc);
-                        let param_ptr = param.as_ptr();
-                        let current_value = param.modulated_plain_value();
-                        let new_value = (current_value - 1).max(-4);
-                        let normalized_value = param.preview_normalized(new_value);
+            .width(Pixels(16.0))
+            .height(Pixels(18.0))
+            .background_color(ColorPalette::SURFACE_ELEVATED)
+            .border_width(Pixels(1.0))
+            .border_color(ColorPalette::BORDER)
+            .corner_radius(Pixels(2.0))
+            .cursor(CursorIcon::Hand)
+            .on_press({
+                let params = params.clone();
+                move |cx| {
+                    let params_arc = params.get(cx);
+                    let param = octave_map(&*params_arc);
+                    let param_ptr = param.as_ptr();
+                    let current_value = param.modulated_plain_value();
+                    let new_value = (current_value - 1).max(-4);
+                    let normalized_value = param.preview_normalized(new_value);
 
-                        cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
-                        cx.emit(RawParamEvent::SetParameterNormalized(
-                            param_ptr,
-                            normalized_value,
-                        ));
-                        cx.emit(RawParamEvent::EndSetParameter(param_ptr));
-                    }
-                });
+                    cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
+                    cx.emit(RawParamEvent::SetParameterNormalized(
+                        param_ptr,
+                        normalized_value,
+                    ));
+                    cx.emit(RawParamEvent::EndSetParameter(param_ptr));
+                }
+            });
 
             Label::new(
                 cx,
@@ -104,53 +104,53 @@ where
                     }
                 }),
             )
-                .width(Pixels(32.0))
-                .height(Pixels(22.0))
-                .background_color(ColorPalette::SURFACE)
-                .border_width(Pixels(1.0))
-                .border_color(ColorPalette::BORDER)
-                .font_size(10.0)
-                .color(ColorPalette::TEXT_PRIMARY)
-                .text_align(TextAlign::Center);
+            .width(Pixels(28.0))
+            .height(Pixels(18.0))
+            .background_color(ColorPalette::SURFACE)
+            .border_width(Pixels(1.0))
+            .border_color(ColorPalette::BORDER)
+            .font_size(9.0)
+            .color(ColorPalette::TEXT_PRIMARY)
+            .text_align(TextAlign::Center);
 
             Button::new(cx, |cx| {
                 Label::new(cx, "+")
-                    .font_size(14.0)
+                    .font_size(12.0)
                     .color(ColorPalette::TEXT_PRIMARY)
             })
-                .width(Pixels(18.0))
-                .height(Pixels(22.0))
-                .background_color(ColorPalette::SURFACE_ELEVATED)
-                .border_width(Pixels(1.0))
-                .border_color(ColorPalette::BORDER)
-                .corner_radius(Pixels(3.0))
-                .cursor(CursorIcon::Hand)
-                .on_press({
-                    let params = params.clone();
-                    move |cx| {
-                        let params_arc = params.get(cx);
-                        let param = octave_map(&*params_arc);
-                        let param_ptr = param.as_ptr();
-                        let current_value = param.modulated_plain_value();
-                        let new_value = (current_value + 1).min(4);
-                        let normalized_value = param.preview_normalized(new_value);
+            .width(Pixels(16.0))
+            .height(Pixels(18.0))
+            .background_color(ColorPalette::SURFACE_ELEVATED)
+            .border_width(Pixels(1.0))
+            .border_color(ColorPalette::BORDER)
+            .corner_radius(Pixels(2.0))
+            .cursor(CursorIcon::Hand)
+            .on_press({
+                let params = params.clone();
+                move |cx| {
+                    let params_arc = params.get(cx);
+                    let param = octave_map(&*params_arc);
+                    let param_ptr = param.as_ptr();
+                    let current_value = param.modulated_plain_value();
+                    let new_value = (current_value + 1).min(4);
+                    let normalized_value = param.preview_normalized(new_value);
 
-                        cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
-                        cx.emit(RawParamEvent::SetParameterNormalized(
-                            param_ptr,
-                            normalized_value,
-                        ));
-                        cx.emit(RawParamEvent::EndSetParameter(param_ptr));
-                    }
-                });
+                    cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
+                    cx.emit(RawParamEvent::SetParameterNormalized(
+                        param_ptr,
+                        normalized_value,
+                    ));
+                    cx.emit(RawParamEvent::EndSetParameter(param_ptr));
+                }
+            });
         })
-            .space(Pixels(0.0))
-            .alignment(Alignment::Center);
+        .space(Pixels(0.0))
+        .alignment(Alignment::Center);
     })
-        .space(Pixels(2.0))
-        .alignment(Alignment::Center)
-        .width(Pixels(68.0))
-        .height(Pixels(36.0))
+    .space(Pixels(1.0))
+    .alignment(Alignment::Center)
+    .width(Pixels(60.0))
+    .height(Pixels(30.0))
 }
 
 fn waveform_dropdown<L>(
@@ -175,26 +175,26 @@ where
                                 waveform_to_str(&param.value()).to_string()
                             }),
                         )
-                            .text_align(TextAlign::Center)
-                            .font_size(11.0)
-                            .color(ColorPalette::TEXT_PRIMARY);
+                        .text_align(TextAlign::Center)
+                        .font_size(10.0)
+                        .color(ColorPalette::TEXT_PRIMARY);
 
                         Label::new(cx, "▼")
-                            .font_size(9.0)
+                            .font_size(8.0)
                             .color(ColorPalette::TEXT_SECONDARY);
                     })
-                        .space(Pixels(4.0))
+                    .space(Pixels(3.0))
                 })
-                    .width(Pixels(90.0))
-                    .height(Pixels(24.0))
-                    .background_color(ColorPalette::SURFACE_ELEVATED)
-                    .border_width(Pixels(1.0))
-                    .border_color(ColorPalette::BORDER)
-                    .corner_radius(Pixels(4.0))
-                    .cursor(CursorIcon::Hand)
-                    .on_press(move |cx| {
-                        cx.emit(PopupEvent::Switch);
-                    });
+                .width(Pixels(75.0))
+                .height(Pixels(20.0))
+                .background_color(ColorPalette::SURFACE_ELEVATED)
+                .border_width(Pixels(1.0))
+                .border_color(ColorPalette::BORDER)
+                .corner_radius(Pixels(3.0))
+                .cursor(CursorIcon::Hand)
+                .on_press(move |cx| {
+                    cx.emit(PopupEvent::Switch);
+                });
             }
         },
         move |cx| {
@@ -212,46 +212,46 @@ where
                     ] {
                         Button::new(cx, |cx| {
                             Label::new(cx, waveform_to_str(&option))
-                                .font_size(11.0)
+                                .font_size(10.0)
                                 .color(ColorPalette::TEXT_PRIMARY)
                         })
-                            .width(Pixels(100.0))
-                            .height(Pixels(22.0))
-                            .background_color(if option == current_value {
-                                ColorPalette::PRIMARY
-                            } else {
-                                Color::transparent()
-                            })
-                            .cursor(CursorIcon::Hand)
-                            .on_press({
-                                let params_for_press = params.clone();
-                                move |cx| {
-                                    let params_arc = params_for_press.get(cx);
-                                    let param = map(&*params_arc);
-                                    let param_ptr = param.as_ptr();
-                                    let normalized_value = param.preview_normalized(option);
+                        .width(Pixels(85.0))
+                        .height(Pixels(20.0))
+                        .background_color(if option == current_value {
+                            ColorPalette::PRIMARY
+                        } else {
+                            Color::transparent()
+                        })
+                        .cursor(CursorIcon::Hand)
+                        .on_press({
+                            let params_for_press = params.clone();
+                            move |cx| {
+                                let params_arc = params_for_press.get(cx);
+                                let param = map(&*params_arc);
+                                let param_ptr = param.as_ptr();
+                                let normalized_value = param.preview_normalized(option);
 
-                                    cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
-                                    cx.emit(RawParamEvent::SetParameterNormalized(
-                                        param_ptr,
-                                        normalized_value,
-                                    ));
-                                    cx.emit(RawParamEvent::EndSetParameter(param_ptr));
+                                cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
+                                cx.emit(RawParamEvent::SetParameterNormalized(
+                                    param_ptr,
+                                    normalized_value,
+                                ));
+                                cx.emit(RawParamEvent::EndSetParameter(param_ptr));
 
-                                    cx.emit(PopupEvent::Close);
-                                }
-                            });
+                                cx.emit(PopupEvent::Close);
+                            }
+                        });
                     }
                 })
-                    .padding(Pixels(4.0))
-                    .background_color(ColorPalette::SURFACE)
-                    .corner_radius(Pixels(6.0))
-                    .border_width(Pixels(1.0))
-                    .border_color(ColorPalette::BORDER);
+                .padding(Pixels(3.0))
+                .background_color(ColorPalette::SURFACE)
+                .corner_radius(Pixels(4.0))
+                .border_width(Pixels(1.0))
+                .border_color(ColorPalette::BORDER);
             });
         },
     )
-        .placement(Placement::Bottom)
+    .placement(Placement::Bottom)
 }
 
 fn create_oscillator_section(
@@ -273,224 +273,229 @@ fn create_oscillator_section(
     + 'static,
     octave_map: impl Fn(&SineParams) -> &nih_plug::prelude::IntParam + Copy + Send + Sync + 'static,
 
-    unison_voices_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::IntParam + Copy + Send + Sync + 'static,
-    unison_detune_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
-    unison_blend_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
-    unison_volume_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
+    unison_voices_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::IntParam
+    + Copy
+    + Send
+    + Sync
+    + 'static,
+    unison_detune_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam
+    + Copy
+    + Send
+    + Sync
+    + 'static,
+    unison_blend_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam
+    + Copy
+    + Send
+    + Sync
+    + 'static,
+    unison_volume_map: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam
+    + Copy
+    + Send
+    + Sync
+    + 'static,
 ) {
     VStack::new(cx, |cx| {
-
+        // Compact header
         HStack::new(cx, |cx| {
             Element::new(cx)
                 .width(Pixels(2.0))
-                .height(Pixels(14.0))
+                .height(Pixels(12.0))
                 .background_color(accent_color);
             Label::new(cx, title)
-                .font_size(12.0)
+                .font_size(11.0)
                 .font_weight(FontWeightKeyword::Medium)
                 .color(ColorPalette::TEXT_PRIMARY);
         })
-            .space(Pixels(6.0))
-            .height(Pixels(18.0));
-
+        .space(Pixels(4.0))
+        .height(Pixels(14.0));
 
         let osc_tabs = vec![
-            TabDefinition::new("wave", "Wave").with_width(80.0),
-            TabDefinition::new("unison", "Unison").with_width(80.0),
+            TabDefinition::new("wave", "Wave").with_width(65.0),
+            TabDefinition::new("unison", "Unison").with_width(65.0),
         ];
 
         TabSwitcher::new(cx, osc_tabs, move |cx, tab_id, _index| {
             match tab_id {
                 "wave" => {
-
                     VStack::new(cx, |cx| {
-
+                        // Wave selection and octave in one row
                         HStack::new(cx, |cx| {
                             Label::new(cx, "Wave")
-                                .width(Pixels(50.0))
-                                .font_size(11.0)
+                                .width(Pixels(35.0))
+                                .font_size(10.0)
                                 .color(ColorPalette::TEXT_PRIMARY);
                             waveform_dropdown(cx, Data::params, waveform_map);
-
-                            Element::new(cx).width(Pixels(15.0));
-
+                            Element::new(cx).width(Pixels(10.0));
                             octave_counter(cx, Data::params, octave_map);
                         })
-                            .height(Pixels(40.0))
-                            .alignment(Alignment::Center);
+                        .height(Pixels(30.0))
+                        .alignment(Alignment::Center);
 
-
-                        HStack::new(cx, |cx| {
-                            VStack::new(cx, |cx| {
+                        // Compact knobs layout - 2x2 grid
+                        VStack::new(cx, |cx| {
+                            HStack::new(cx, |cx| {
                                 VStack::new(cx, |cx| {
                                     Label::new(cx, "Frequency")
-                                        .font_size(10.0)
+                                        .font_size(9.0)
                                         .color(ColorPalette::TEXT_PRIMARY)
-                                        .height(Pixels(12.0))
+                                        .height(Pixels(10.0))
                                         .text_align(TextAlign::Center);
                                     ParamKnob::new(cx, Data::params, freq_map)
-                                        .width(Pixels(40.0))
-                                        .height(Pixels(40.0));
+                                        .width(Pixels(35.0))
+                                        .height(Pixels(35.0));
                                 })
-                                    .space(Pixels(2.0))
-                                    .alignment(Alignment::Center)
-                                    .width(Pixels(50.0))
-                                    .height(Pixels(60.0));
+                                .space(Pixels(1.0))
+                                .alignment(Alignment::Center)
+                                .width(Pixels(45.0))
+                                .height(Pixels(50.0));
 
                                 VStack::new(cx, |cx| {
                                     Label::new(cx, "Detune")
-                                        .font_size(10.0)
+                                        .font_size(9.0)
                                         .color(ColorPalette::TEXT_PRIMARY)
-                                        .height(Pixels(12.0))
+                                        .height(Pixels(10.0))
                                         .text_align(TextAlign::Center);
                                     ParamKnob::new(cx, Data::params, detune_map)
-                                        .width(Pixels(40.0))
-                                        .height(Pixels(40.0));
+                                        .width(Pixels(35.0))
+                                        .height(Pixels(35.0));
                                 })
-                                    .space(Pixels(2.0))
-                                    .alignment(Alignment::Center)
-                                    .width(Pixels(50.0))
-                                    .height(Pixels(60.0));
-                            })
-                                .space(Pixels(10.0));
+                                .space(Pixels(1.0))
+                                .alignment(Alignment::Center)
+                                .width(Pixels(45.0))
+                                .height(Pixels(50.0));
 
-                            VStack::new(cx, |cx| {
                                 VStack::new(cx, |cx| {
                                     Label::new(cx, "Phase")
-                                        .font_size(10.0)
+                                        .font_size(9.0)
                                         .color(ColorPalette::TEXT_PRIMARY)
-                                        .height(Pixels(12.0))
+                                        .height(Pixels(10.0))
                                         .text_align(TextAlign::Center);
                                     ParamKnob::new(cx, Data::params, phase_map)
-                                        .width(Pixels(40.0))
-                                        .height(Pixels(40.0));
+                                        .width(Pixels(35.0))
+                                        .height(Pixels(35.0));
                                 })
-                                    .space(Pixels(2.0))
-                                    .alignment(Alignment::Center)
-                                    .width(Pixels(50.0))
-                                    .height(Pixels(60.0));
+                                .space(Pixels(1.0))
+                                .alignment(Alignment::Center)
+                                .width(Pixels(45.0))
+                                .height(Pixels(50.0));
 
                                 VStack::new(cx, |cx| {
                                     Label::new(cx, "Gain")
-                                        .font_size(10.0)
+                                        .font_size(9.0)
                                         .color(ColorPalette::TEXT_PRIMARY)
-                                        .height(Pixels(12.0))
+                                        .height(Pixels(10.0))
                                         .text_align(TextAlign::Center);
                                     ParamKnob::new(cx, Data::params, gain_map)
-                                        .width(Pixels(40.0))
-                                        .height(Pixels(40.0));
+                                        .width(Pixels(35.0))
+                                        .height(Pixels(35.0));
                                 })
-                                    .space(Pixels(2.0))
-                                    .alignment(Alignment::Center)
-                                    .width(Pixels(50.0))
-                                    .height(Pixels(60.0));
+                                .space(Pixels(1.0))
+                                .alignment(Alignment::Center)
+                                .width(Pixels(45.0))
+                                .height(Pixels(50.0));
                             })
-                                .space(Pixels(10.0));
-                        })
-                            .space(Pixels(15.0))
+                            .space(Pixels(8.0))
                             .alignment(Alignment::Center);
+                        })
+                        .space(Pixels(2.0));
                     })
-                        .space(Pixels(8.0));
+                    .space(Pixels(4.0));
                 }
 
                 "unison" => {
-
                     VStack::new(cx, |cx| {
                         Label::new(cx, "Unison Settings")
-                            .font_size(11.0)
+                            .font_size(10.0)
                             .color(ColorPalette::TEXT_SECONDARY)
-                            .height(Pixels(16.0))
+                            .height(Pixels(12.0))
                             .text_align(TextAlign::Center);
 
-
-                        HStack::new(cx, |cx| {
-                            VStack::new(cx, |cx| {
+                        // 2x2 layout for unison knobs
+                        VStack::new(cx, |cx| {
+                            HStack::new(cx, |cx| {
                                 VStack::new(cx, |cx| {
                                     Label::new(cx, "Voices")
-                                        .font_size(10.0)
+                                        .font_size(9.0)
                                         .color(ColorPalette::TEXT_PRIMARY)
-                                        .height(Pixels(12.0))
+                                        .height(Pixels(10.0))
                                         .text_align(TextAlign::Center);
                                     ParamKnob::new(cx, Data::params, unison_voices_map)
-                                        .width(Pixels(40.0))
-                                        .height(Pixels(40.0));
+                                        .width(Pixels(35.0))
+                                        .height(Pixels(35.0));
                                 })
-                                    .space(Pixels(2.0))
-                                    .alignment(Alignment::Center)
-                                    .width(Pixels(50.0))
-                                    .height(Pixels(60.0));
+                                .space(Pixels(1.0))
+                                .alignment(Alignment::Center)
+                                .width(Pixels(45.0))
+                                .height(Pixels(50.0));
 
                                 VStack::new(cx, |cx| {
                                     Label::new(cx, "Detune")
-                                        .font_size(10.0)
+                                        .font_size(9.0)
                                         .color(ColorPalette::TEXT_PRIMARY)
-                                        .height(Pixels(12.0))
+                                        .height(Pixels(10.0))
                                         .text_align(TextAlign::Center);
                                     ParamKnob::new(cx, Data::params, unison_detune_map)
-                                        .width(Pixels(40.0))
-                                        .height(Pixels(40.0));
+                                        .width(Pixels(35.0))
+                                        .height(Pixels(35.0));
                                 })
-                                    .space(Pixels(2.0))
-                                    .alignment(Alignment::Center)
-                                    .width(Pixels(50.0))
-                                    .height(Pixels(60.0));
-                            })
-                                .space(Pixels(10.0));
+                                .space(Pixels(1.0))
+                                .alignment(Alignment::Center)
+                                .width(Pixels(45.0))
+                                .height(Pixels(50.0));
 
-                            VStack::new(cx, |cx| {
                                 VStack::new(cx, |cx| {
                                     Label::new(cx, "Blend")
-                                        .font_size(10.0)
+                                        .font_size(9.0)
                                         .color(ColorPalette::TEXT_PRIMARY)
-                                        .height(Pixels(12.0))
+                                        .height(Pixels(10.0))
                                         .text_align(TextAlign::Center);
                                     ParamKnob::new(cx, Data::params, unison_blend_map)
-                                        .width(Pixels(40.0))
-                                        .height(Pixels(40.0));
+                                        .width(Pixels(35.0))
+                                        .height(Pixels(35.0));
                                 })
-                                    .space(Pixels(2.0))
-                                    .alignment(Alignment::Center)
-                                    .width(Pixels(50.0))
-                                    .height(Pixels(60.0));
+                                .space(Pixels(1.0))
+                                .alignment(Alignment::Center)
+                                .width(Pixels(45.0))
+                                .height(Pixels(50.0));
 
                                 VStack::new(cx, |cx| {
                                     Label::new(cx, "Volume")
-                                        .font_size(10.0)
+                                        .font_size(9.0)
                                         .color(ColorPalette::TEXT_PRIMARY)
-                                        .height(Pixels(12.0))
+                                        .height(Pixels(10.0))
                                         .text_align(TextAlign::Center);
                                     ParamKnob::new(cx, Data::params, unison_volume_map)
-                                        .width(Pixels(40.0))
-                                        .height(Pixels(40.0));
+                                        .width(Pixels(35.0))
+                                        .height(Pixels(35.0));
                                 })
-                                    .space(Pixels(2.0))
-                                    .alignment(Alignment::Center)
-                                    .width(Pixels(50.0))
-                                    .height(Pixels(60.0));
+                                .space(Pixels(1.0))
+                                .alignment(Alignment::Center)
+                                .width(Pixels(45.0))
+                                .height(Pixels(50.0));
                             })
-                                .space(Pixels(10.0));
-                        })
-                            .space(Pixels(15.0))
+                            .space(Pixels(8.0))
                             .alignment(Alignment::Center);
+                        })
+                        .space(Pixels(2.0));
                     })
-                        .space(Pixels(8.0));
+                    .space(Pixels(4.0));
                 }
 
                 _ => {
                     Label::new(cx, "Unknown Tab")
-                        .font_size(12.0)
+                        .font_size(10.0)
                         .color(ColorPalette::TEXT_PRIMARY)
                         .text_align(TextAlign::Center);
                 }
             }
         })
-            .height(Pixels(160.0));
+        .height(Pixels(110.0)); // Reduced from 160px to 110px
     })
-        .padding(Pixels(8.0))
-        .background_color(ColorPalette::SURFACE)
-        .border_width(Pixels(1.0))
-        .border_color(ColorPalette::BORDER)
-        .corner_radius(Pixels(8.0));
+    .padding(Pixels(6.0)) // Reduced from 8px
+    .background_color(ColorPalette::SURFACE)
+    .border_width(Pixels(1.0))
+    .border_color(ColorPalette::BORDER)
+    .corner_radius(Pixels(6.0));
 }
 
 fn waveform_to_str(w: &Waveform) -> &'static str {
@@ -514,20 +519,20 @@ pub(crate) fn create(
         Data {
             params: params.clone(),
         }
-            .build(cx);
+        .build(cx);
 
         VStack::new(cx, |cx| {
             Label::new(cx, "TripleOsc")
                 .font_family(vec![FamilyOwned::Named(String::from(NOTO_SANS))])
                 .font_weight(FontWeightKeyword::Bold)
-                .font_size(16.0)
+                .font_size(15.0) // Slightly smaller
                 .color(ColorPalette::TEXT_PRIMARY)
                 .text_align(TextAlign::Center)
-                .height(Pixels(24.0));
+                .height(Pixels(20.0)); // Reduced from 24px
 
             let tabs = vec![
-                TabDefinition::new("oscillators", "Oscillators").with_width(140.0),
-                TabDefinition::new("envelope", "Envelope").with_width(120.0),
+                TabDefinition::new("oscillators", "Oscillators").with_width(120.0),
+                TabDefinition::new("envelope", "Envelope").with_width(100.0),
             ];
 
             TabSwitcher::new(cx, tabs, |cx, tab_id, _index| match tab_id {
@@ -543,11 +548,10 @@ pub(crate) fn create(
                             |p| &p.phase1,
                             |p| &p.detune1,
                             |p| &p.octave1,
-
                             |p| &p.unison_voices1,
                             |p| &p.unison_detune1,
                             |p| &p.unison_blend1,
-                            |p| &p.unison_volume1,    
+                            |p| &p.unison_volume1,
                         );
 
                         create_oscillator_section(
@@ -582,13 +586,13 @@ pub(crate) fn create(
                             |p| &p.unison_volume3,
                         );
                     })
-                        .space(Pixels(8.0));
+                    .space(Pixels(5.0)); // Reduced from 8px
                 }
 
                 "envelope" => {
                     VStack::new(cx, |cx| {
                         Label::new(cx, "Envelope Controls")
-                            .font_size(14.0)
+                            .font_size(13.0)
                             .font_weight(FontWeightKeyword::Medium)
                             .color(ColorPalette::TEXT_PRIMARY)
                             .text_align(TextAlign::Center);
@@ -596,9 +600,9 @@ pub(crate) fn create(
                         VStack::new(cx, |cx| {
                             VStack::new(cx, |cx| {
                                 Label::new(cx, "Attack")
-                                    .font_size(11.0)
+                                    .font_size(10.0)
                                     .color(ColorPalette::TEXT_PRIMARY)
-                                    .height(Pixels(16.0));
+                                    .height(Pixels(14.0));
 
                                 Element::new(cx)
                                     .height(Pixels(8.0))
@@ -609,9 +613,9 @@ pub(crate) fn create(
 
                             VStack::new(cx, |cx| {
                                 Label::new(cx, "Decay")
-                                    .font_size(11.0)
+                                    .font_size(10.0)
                                     .color(ColorPalette::TEXT_PRIMARY)
-                                    .height(Pixels(16.0));
+                                    .height(Pixels(14.0));
 
                                 Element::new(cx)
                                     .height(Pixels(8.0))
@@ -622,9 +626,9 @@ pub(crate) fn create(
 
                             VStack::new(cx, |cx| {
                                 Label::new(cx, "Sustain")
-                                    .font_size(11.0)
+                                    .font_size(10.0)
                                     .color(ColorPalette::TEXT_PRIMARY)
-                                    .height(Pixels(16.0));
+                                    .height(Pixels(14.0));
 
                                 Element::new(cx)
                                     .height(Pixels(8.0))
@@ -635,9 +639,9 @@ pub(crate) fn create(
 
                             VStack::new(cx, |cx| {
                                 Label::new(cx, "Release")
-                                    .font_size(11.0)
+                                    .font_size(10.0)
                                     .color(ColorPalette::TEXT_PRIMARY)
-                                    .height(Pixels(16.0));
+                                    .height(Pixels(14.0));
 
                                 Element::new(cx)
                                     .height(Pixels(8.0))
@@ -646,28 +650,28 @@ pub(crate) fn create(
                                     .corner_radius(Pixels(4.0));
                             });
                         })
-                            .space(Pixels(12.0))
-                            .padding(Pixels(16.0))
-                            .background_color(ColorPalette::SURFACE)
-                            .border_width(Pixels(1.0))
-                            .border_color(ColorPalette::BORDER)
-                            .corner_radius(Pixels(8.0));
+                        .space(Pixels(10.0))
+                        .padding(Pixels(14.0))
+                        .background_color(ColorPalette::SURFACE)
+                        .border_width(Pixels(1.0))
+                        .border_color(ColorPalette::BORDER)
+                        .corner_radius(Pixels(6.0));
                     })
-                        .space(Pixels(16.0));
+                    .space(Pixels(12.0));
                 }
 
                 _ => {
                     Label::new(cx, "Unknown Tab")
-                        .font_size(14.0)
+                        .font_size(12.0)
                         .color(ColorPalette::TEXT_PRIMARY)
                         .text_align(TextAlign::Center);
                 }
             })
-                .width(Stretch(1.0))
-                .height(Stretch(1.0));
+            .width(Stretch(1.0))
+            .height(Stretch(1.0));
         })
-            .padding(Pixels(12.0))
-            .background_color(ColorPalette::BACKGROUND)
-            .space(Pixels(8.0));
+        .padding(Pixels(10.0)) // Reduced from 12px
+        .background_color(ColorPalette::BACKGROUND)
+        .space(Pixels(6.0)); // Reduced from 8px
     })
 }
