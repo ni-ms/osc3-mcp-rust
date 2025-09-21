@@ -354,7 +354,7 @@ impl Envelope {
                     self.stage = EnvelopeStage::Decay;
                     self.samples_elapsed = 0;
                 } else {
-                    // Exponential attack curve
+
                     let progress = self.samples_elapsed as f32 / attack_samples as f32;
                     self.current_level = 1.0 - (-5.0 * progress).exp();
                 }
@@ -366,7 +366,7 @@ impl Envelope {
                     self.stage = EnvelopeStage::Sustain;
                     self.samples_elapsed = 0;
                 } else {
-                    // Exponential decay curve
+
                     let progress = self.samples_elapsed as f32 / decay_samples as f32;
                     self.current_level = sustain + (1.0 - sustain) * (-5.0 * progress).exp();
                 }
@@ -381,7 +381,7 @@ impl Envelope {
                     self.stage = EnvelopeStage::Idle;
                     self.samples_elapsed = 0;
                 } else {
-                    // Exponential release curve
+
                     let progress = self.samples_elapsed as f32 / release_samples as f32;
                     self.current_level = self.release_start_level * (-5.0 * progress).exp();
                 }
@@ -397,19 +397,19 @@ impl Envelope {
     }
 }
 
-// Enhanced Voice with unison oscillators, filter, and envelope
+
 struct Voice {
     active: bool,
     note: u8,
     velocity: f32,
     base_frequency: f32,
 
-    // Three unison oscillators
+
     osc1: UnisonOscillator,
     osc2: UnisonOscillator,
     osc3: UnisonOscillator,
 
-    // Filter and envelope
+
     filter: BiquadFilter,
     envelope: Envelope,
 }
@@ -421,7 +421,7 @@ impl Voice {
             note: 0,
             velocity: 0.0,
             base_frequency: 440.0,
-            osc1: UnisonOscillator::new(8), // Max 8 voices per oscillator
+            osc1: UnisonOscillator::new(8),
             osc2: UnisonOscillator::new(8),
             osc3: UnisonOscillator::new(8),
             filter: BiquadFilter::new(sample_rate),
@@ -437,7 +437,7 @@ impl Voice {
 
         self.envelope.note_on();
 
-        // Reset oscillator phases
+
         self.osc1.reset();
         self.osc2.reset();
         self.osc3.reset();
@@ -457,13 +457,13 @@ impl Voice {
     }
 }
 
-// Add ADSR parameters to SineParams
+
 #[derive(Params)]
 pub struct SineParams {
     #[persist = "editor-state"]
     pub editor_state: Arc<ViziaState>,
 
-    // Oscillator 1
+
     #[id = "waveform1"]
     pub waveform1: EnumParam<Waveform>,
     #[id = "freq1"]
@@ -485,7 +485,7 @@ pub struct SineParams {
     #[id = "unison_volume1"]
     pub unison_volume1: FloatParam,
 
-    // Oscillator 2 (same structure)
+
     #[id = "waveform2"]
     pub waveform2: EnumParam<Waveform>,
     #[id = "freq2"]
@@ -507,7 +507,7 @@ pub struct SineParams {
     #[id = "unison_volume2"]
     pub unison_volume2: FloatParam,
 
-    // Oscillator 3 (same structure)
+
     #[id = "waveform3"]
     pub waveform3: EnumParam<Waveform>,
     #[id = "freq3"]
@@ -529,7 +529,7 @@ pub struct SineParams {
     #[id = "unison_volume3"]
     pub unison_volume3: FloatParam,
 
-    // Filter parameters
+
     #[id = "filter_mode"]
     pub filter_mode: EnumParam<FilterMode>,
     #[id = "filter_cutoff"]
@@ -539,7 +539,7 @@ pub struct SineParams {
     #[id = "filter_drive"]
     pub filter_drive: FloatParam,
 
-    // ADSR Envelope parameters
+
     #[id = "attack"]
     pub attack: FloatParam,
     #[id = "decay"]
@@ -555,7 +555,7 @@ impl Default for SineParams {
         Self {
             editor_state: editor::default_state(),
 
-            // Oscillator 1
+
             waveform1: EnumParam::new("Waveform 1", Waveform::default()),
             frequency1: FloatParam::new(
                 "Frequency 1",
@@ -641,7 +641,7 @@ impl Default for SineParams {
             .with_smoother(SmoothingStyle::Linear(50.0))
             .with_value_to_string(formatters::v2s_f32_percentage(1)),
 
-            // Oscillator 2 (similar to osc1 but different defaults)
+
             waveform2: EnumParam::new("Waveform 2", Waveform::Sawtooth),
             frequency2: FloatParam::new(
                 "Frequency 2",
@@ -707,7 +707,7 @@ impl Default for SineParams {
                 FloatRange::Linear { min: 0.0, max: 1.0 },
             ),
 
-            // Oscillator 3
+
             waveform3: EnumParam::new("Waveform 3", Waveform::Square),
             frequency3: FloatParam::new(
                 "Frequency 3",
@@ -764,7 +764,7 @@ impl Default for SineParams {
                 FloatRange::Linear { min: 0.0, max: 1.0 },
             ),
 
-            // Filter
+
             filter_mode: EnumParam::new("Filter Mode", FilterMode::LowPass),
             filter_cutoff: FloatParam::new(
                 "Filter Cutoff",
@@ -795,7 +795,7 @@ impl Default for SineParams {
             )
             .with_smoother(SmoothingStyle::Linear(50.0)),
 
-            // ADSR Envelope
+
             attack: FloatParam::new(
                 "Attack",
                 0.01,
@@ -850,7 +850,7 @@ pub struct SineSynth {
 impl Default for SineSynth {
     fn default() -> Self {
         let sample_rate = 44100.0;
-        let mut voices = Vec::with_capacity(16); // Increased to 16 voices
+        let mut voices = Vec::with_capacity(16);
         for _ in 0..16 {
             voices.push(Voice::new(sample_rate));
         }
