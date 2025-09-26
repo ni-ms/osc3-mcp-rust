@@ -46,7 +46,7 @@ impl Default for Waveform {
     }
 }
 
-// Enhanced unison oscillator with multiple voices
+
 #[derive(Clone)]
 struct UnisonOscillator {
     voices: Vec<OscillatorVoice>,
@@ -66,7 +66,7 @@ impl UnisonOscillator {
             let detune_offset = if max_voices == 1 {
                 0.0
             } else {
-                // Spread voices symmetrically around center
+                
                 (i as f32 - (max_voices - 1) as f32 / 2.0) / ((max_voices - 1) as f32 / 2.0)
             };
             voices.push(OscillatorVoice {
@@ -84,7 +84,7 @@ impl UnisonOscillator {
     fn set_num_voices(&mut self, num_voices: usize) {
         self.num_voices = num_voices.min(self.voices.len()).max(1);
 
-        // Recalculate detune offsets for current voice count
+        
         for (i, voice) in self.voices.iter_mut().enumerate() {
             voice.detune_offset = if self.num_voices == 1 {
                 0.0
@@ -106,7 +106,7 @@ impl UnisonOscillator {
         sample_rate: f32,
     ) -> f32 {
         if self.num_voices == 1 {
-            // Single voice - no unison processing
+            
             let phase_incr = base_freq / sample_rate * TAU;
             let current_phase = self.voices[0].phase + phase_offset * TAU;
             let sample = Self::generate_waveform(waveform, current_phase);
@@ -125,7 +125,7 @@ impl UnisonOscillator {
         for i in 0..self.num_voices {
             let voice = &mut self.voices[i];
 
-            // Apply detune
+            
             let detune_factor = 2.0_f32.powf(voice.detune_offset * detune_cents / 1200.0);
             let detuned_freq = base_freq * detune_factor;
             let phase_incr = detuned_freq / sample_rate * TAU;
@@ -134,7 +134,7 @@ impl UnisonOscillator {
             let sample = Self::generate_waveform(waveform, current_phase);
 
             if i == 0 {
-                mono_sample = sample; // Keep center voice for blend
+                mono_sample = sample; 
             }
 
             unison_sum += sample;
@@ -180,17 +180,17 @@ impl UnisonOscillator {
     }
 }
 
-// Biquad filter implementation
+
 #[derive(Clone)]
 struct BiquadFilter {
-    // Filter coefficients
+    
     b0: f32,
     b1: f32,
     b2: f32,
     a1: f32,
     a2: f32,
 
-    // Delay elements
+    
     x1: f32,
     x2: f32,
     y1: f32,
@@ -217,7 +217,7 @@ impl BiquadFilter {
 
     fn set_coefficients(&mut self, mode: FilterMode, cutoff: f32, resonance: f32) {
         let cutoff = cutoff.clamp(20.0, self.sample_rate * 0.49);
-        let q = (resonance * 10.0 + 0.5).max(0.1); // Convert 0-1 to reasonable Q range
+        let q = (resonance * 10.0 + 0.5).max(0.1); 
 
         let omega = 2.0 * std::f32::consts::PI * cutoff / self.sample_rate;
         let cos_omega = omega.cos();
@@ -261,19 +261,19 @@ impl BiquadFilter {
     }
 
     fn process(&mut self, input: f32, drive: f32) -> f32 {
-        // Apply drive (soft saturation)
+        
         let driven_input = if drive > 1.0 {
             (input * drive).tanh() / drive.tanh()
         } else {
             input * drive
         };
 
-        // Biquad filter equation
+        
         let output = self.b0 * driven_input + self.b1 * self.x1 + self.b2 * self.x2
             - self.a1 * self.y1
             - self.a2 * self.y2;
 
-        // Update delay elements
+        
         self.x2 = self.x1;
         self.x1 = driven_input;
         self.y2 = self.y1;
@@ -295,7 +295,7 @@ impl BiquadFilter {
     }
 }
 
-// ADSR Envelope implementation
+
 #[derive(Clone, Debug, PartialEq)]
 enum EnvelopeStage {
     Idle,
@@ -354,7 +354,6 @@ impl Envelope {
                     self.stage = EnvelopeStage::Decay;
                     self.samples_elapsed = 0;
                 } else {
-
                     let progress = self.samples_elapsed as f32 / attack_samples as f32;
                     self.current_level = 1.0 - (-5.0 * progress).exp();
                 }
@@ -366,7 +365,6 @@ impl Envelope {
                     self.stage = EnvelopeStage::Sustain;
                     self.samples_elapsed = 0;
                 } else {
-
                     let progress = self.samples_elapsed as f32 / decay_samples as f32;
                     self.current_level = sustain + (1.0 - sustain) * (-5.0 * progress).exp();
                 }
@@ -381,7 +379,6 @@ impl Envelope {
                     self.stage = EnvelopeStage::Idle;
                     self.samples_elapsed = 0;
                 } else {
-
                     let progress = self.samples_elapsed as f32 / release_samples as f32;
                     self.current_level = self.release_start_level * (-5.0 * progress).exp();
                 }
@@ -397,18 +394,15 @@ impl Envelope {
     }
 }
 
-
 struct Voice {
     active: bool,
     note: u8,
     velocity: f32,
     base_frequency: f32,
 
-
     osc1: UnisonOscillator,
     osc2: UnisonOscillator,
     osc3: UnisonOscillator,
-
 
     filter: BiquadFilter,
     envelope: Envelope,
@@ -434,13 +428,11 @@ impl Voice {
         self.note = note;
         self.velocity = velocity;
         self.base_frequency = 440.0 * (2.0_f32).powf((note as f32 - 69.0) / 12.0);
-
-        self.envelope.note_on();
-
-
         self.osc1.reset();
         self.osc2.reset();
         self.osc3.reset();
+        self.filter.reset();
+        self.envelope.note_on();
     }
 
     fn note_off(&mut self) {
@@ -457,12 +449,10 @@ impl Voice {
     }
 }
 
-
 #[derive(Params)]
 pub struct SineParams {
     #[persist = "editor-state"]
     pub editor_state: Arc<ViziaState>,
-
 
     #[id = "waveform1"]
     pub waveform1: EnumParam<Waveform>,
@@ -485,7 +475,6 @@ pub struct SineParams {
     #[id = "unison_volume1"]
     pub unison_volume1: FloatParam,
 
-
     #[id = "waveform2"]
     pub waveform2: EnumParam<Waveform>,
     #[id = "freq2"]
@@ -506,7 +495,6 @@ pub struct SineParams {
     pub unison_blend2: FloatParam,
     #[id = "unison_volume2"]
     pub unison_volume2: FloatParam,
-
 
     #[id = "waveform3"]
     pub waveform3: EnumParam<Waveform>,
@@ -529,7 +517,6 @@ pub struct SineParams {
     #[id = "unison_volume3"]
     pub unison_volume3: FloatParam,
 
-
     #[id = "filter_mode"]
     pub filter_mode: EnumParam<FilterMode>,
     #[id = "filter_cutoff"]
@@ -538,7 +525,6 @@ pub struct SineParams {
     pub filter_resonance: FloatParam,
     #[id = "filter_drive"]
     pub filter_drive: FloatParam,
-
 
     #[id = "attack"]
     pub attack: FloatParam,
@@ -554,7 +540,6 @@ impl Default for SineParams {
     fn default() -> Self {
         Self {
             editor_state: editor::default_state(),
-
 
             waveform1: EnumParam::new("Waveform 1", Waveform::default()),
             frequency1: FloatParam::new(
@@ -641,7 +626,6 @@ impl Default for SineParams {
             .with_smoother(SmoothingStyle::Linear(50.0))
             .with_value_to_string(formatters::v2s_f32_percentage(1)),
 
-
             waveform2: EnumParam::new("Waveform 2", Waveform::Sawtooth),
             frequency2: FloatParam::new(
                 "Frequency 2",
@@ -707,7 +691,6 @@ impl Default for SineParams {
                 FloatRange::Linear { min: 0.0, max: 1.0 },
             ),
 
-
             waveform3: EnumParam::new("Waveform 3", Waveform::Square),
             frequency3: FloatParam::new(
                 "Frequency 3",
@@ -764,7 +747,6 @@ impl Default for SineParams {
                 FloatRange::Linear { min: 0.0, max: 1.0 },
             ),
 
-
             filter_mode: EnumParam::new("Filter Mode", FilterMode::LowPass),
             filter_cutoff: FloatParam::new(
                 "Filter Cutoff",
@@ -794,7 +776,6 @@ impl Default for SineParams {
                 FloatRange::Linear { min: 1.0, max: 5.0 },
             )
             .with_smoother(SmoothingStyle::Linear(50.0)),
-
 
             attack: FloatParam::new(
                 "Attack",
@@ -866,7 +847,7 @@ impl Default for SineSynth {
 impl Plugin for SineSynth {
     const NAME: &'static str = "Triple Oscillator Synth";
     const VENDOR: &'static str = "Your Name";
-    const URL: &'static str = "https://your.website";
+    const URL: &'static str = "www.your.website";
     const EMAIL: &'static str = "your@email.com";
     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -918,26 +899,37 @@ impl Plugin for SineSynth {
         _aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        // Process MIDI events
+        
         while let Some(event) = context.next_event() {
             match event {
                 NoteEvent::NoteOn { note, velocity, .. } => {
                     if velocity > 0.0 {
-                        // Find an inactive voice or steal the oldest one
+                        
                         if let Some(voice) = self.voices.iter_mut().find(|v| !v.active) {
                             voice.note_on(note, velocity);
-                        } else if let Some(voice) = self.voices.first_mut() {
-                            voice.note_on(note, velocity);
+                        } else {
+                            
+                            if let Some((oldest_idx, _)) = self
+                                .voices
+                                .iter()
+                                .enumerate()
+                                .min_by_key(|(_, v)| v.envelope.samples_elapsed)
+                            {
+                                self.voices[oldest_idx].note_on(note, velocity);
+                            }
                         }
                     }
                 }
+
                 NoteEvent::NoteOff { note, .. } => {
                     for voice in &mut self.voices {
                         if voice.note == note && voice.active {
                             voice.note_off();
+                            
                         }
                     }
                 }
+
                 NoteEvent::Choke { .. } => {
                     for voice in &mut self.voices {
                         voice.note_off();
@@ -947,7 +939,7 @@ impl Plugin for SineSynth {
             }
         }
 
-        // Process audio
+        
         for (_frame_idx, channel_samples) in buffer.iter_samples().enumerate() {
             let mut sample = 0.0;
 
@@ -956,7 +948,7 @@ impl Plugin for SineSynth {
                     continue;
                 }
 
-                // Update unison voice counts
+                
                 voice
                     .osc1
                     .set_num_voices(self.params.unison_voices1.value() as usize);
@@ -967,10 +959,10 @@ impl Plugin for SineSynth {
                     .osc3
                     .set_num_voices(self.params.unison_voices3.value() as usize);
 
-                // Generate oscillator outputs with proper frequency calculation
+                
                 let mut voice_sample = 0.0;
 
-                // Oscillator 1
+                
                 let freq1 = voice.base_frequency
                     * 2.0_f32.powf(self.params.octave1.value() as f32)
                     * (self.params.frequency1.smoothed.next() / 440.0)
@@ -986,7 +978,7 @@ impl Plugin for SineSynth {
                     self.sample_rate,
                 ) * self.params.gain1.smoothed.next();
 
-                // Oscillator 2
+                
                 let freq2 = voice.base_frequency
                     * 2.0_f32.powf(self.params.octave2.value() as f32)
                     * (self.params.frequency2.smoothed.next() / 440.0)
@@ -1002,7 +994,7 @@ impl Plugin for SineSynth {
                     self.sample_rate,
                 ) * self.params.gain2.smoothed.next();
 
-                // Oscillator 3
+                
                 let freq3 = voice.base_frequency
                     * 2.0_f32.powf(self.params.octave3.value() as f32)
                     * (self.params.frequency3.smoothed.next() / 440.0)
@@ -1020,7 +1012,7 @@ impl Plugin for SineSynth {
 
                 voice_sample = osc1_out + osc2_out + osc3_out;
 
-                // Apply filter
+                
                 voice.filter.set_coefficients(
                     self.params.filter_mode.value(),
                     self.params.filter_cutoff.smoothed.next(),
@@ -1030,27 +1022,27 @@ impl Plugin for SineSynth {
                     .filter
                     .process(voice_sample, self.params.filter_drive.smoothed.next());
 
-                // Apply envelope
+                
+                
                 let envelope_level = voice.envelope.process(
-                    self.params.attack.smoothed.next(),
-                    self.params.decay.smoothed.next(),
-                    self.params.sustain.smoothed.next(),
-                    self.params.release.smoothed.next(),
+                    self.params.attack.smoothed.next().max(0.001), 
+                    self.params.decay.smoothed.next().max(0.001),  
+                    self.params.sustain.smoothed.next().clamp(0.0, 1.0), 
+                    self.params.release.smoothed.next().max(0.001), 
                 );
 
                 voice_sample *= envelope_level * voice.velocity;
                 sample += voice_sample;
 
-                // Mark voice as inactive if envelope finished
                 if !voice.envelope.is_active() {
                     voice.active = false;
                 }
             }
 
-            // Apply soft limiting to prevent clipping
+            
             sample = sample.tanh() * 0.5;
 
-            // Output to both channels
+            
             for output_sample in channel_samples {
                 *output_sample = sample;
             }

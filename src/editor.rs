@@ -824,73 +824,97 @@ pub(crate) fn create(
 
                 "envelope" => {
                     VStack::new(cx, |cx| {
-                        Label::new(cx, "Envelope Controls")
-                            .font_size(13.0)
-                            .font_weight(FontWeightKeyword::Medium)
-                            .color(ColorPalette::TEXT_PRIMARY)
-                            .text_align(TextAlign::Center);
+
+                        HStack::new(cx, |cx| {
+                            Element::new(cx)
+                                .width(Pixels(2.0))
+                                .height(Pixels(12.0))
+                                .background_color(ColorPalette::PRIMARY);
+                            Label::new(cx, "Envelope")
+                                .font_size(11.0)
+                                .font_weight(FontWeightKeyword::Medium)
+                                .color(ColorPalette::TEXT_PRIMARY);
+                        })
+                        .space(Pixels(4.0))
+                        .height(Pixels(16.0));
 
                         VStack::new(cx, |cx| {
-                            VStack::new(cx, |cx| {
-                                Label::new(cx, "Attack")
-                                    .font_size(10.0)
-                                    .color(ColorPalette::TEXT_PRIMARY)
-                                    .height(Pixels(14.0));
+                            HStack::new(cx, |cx| {
+                                VStack::new(cx, |cx| {
+                                    Label::new(cx, "Attack")
+                                        .font_size(9.0)
+                                        .color(ColorPalette::TEXT_PRIMARY)
+                                        .height(Pixels(10.0))
+                                        .text_align(TextAlign::Center);
+                                    ParamKnob::new(cx, Data::params, |p| &p.attack)
+                                        .width(Pixels(50.0))
+                                        .height(Pixels(50.0));
+                                })
+                                .space(Pixels(1.0))
+                                .alignment(Alignment::Center)
+                                .width(Pixels(60.0))
+                                .height(Pixels(65.0));
 
-                                Element::new(cx)
-                                    .height(Pixels(8.0))
-                                    .width(Stretch(1.0))
-                                    .background_color(ColorPalette::SURFACE_ELEVATED)
-                                    .corner_radius(Pixels(4.0));
-                            });
+                                VStack::new(cx, |cx| {
+                                    Label::new(cx, "Decay")
+                                        .font_size(9.0)
+                                        .color(ColorPalette::TEXT_PRIMARY)
+                                        .height(Pixels(10.0))
+                                        .text_align(TextAlign::Center);
+                                    ParamKnob::new(cx, Data::params, |p| &p.decay)
+                                        .width(Pixels(50.0))
+                                        .height(Pixels(50.0));
+                                })
+                                .space(Pixels(1.0))
+                                .alignment(Alignment::Center)
+                                .width(Pixels(60.0))
+                                .height(Pixels(65.0));
+                            })
+                            .space(Pixels(20.0))
+                            .alignment(Alignment::Center);
 
-                            VStack::new(cx, |cx| {
-                                Label::new(cx, "Decay")
-                                    .font_size(10.0)
-                                    .color(ColorPalette::TEXT_PRIMARY)
-                                    .height(Pixels(14.0));
+                            HStack::new(cx, |cx| {
+                                VStack::new(cx, |cx| {
+                                    Label::new(cx, "Sustain")
+                                        .font_size(9.0)
+                                        .color(ColorPalette::TEXT_PRIMARY)
+                                        .height(Pixels(10.0))
+                                        .text_align(TextAlign::Center);
+                                    ParamKnob::new(cx, Data::params, |p| &p.sustain)
+                                        .width(Pixels(50.0))
+                                        .height(Pixels(50.0));
+                                })
+                                .space(Pixels(1.0))
+                                .alignment(Alignment::Center)
+                                .width(Pixels(60.0))
+                                .height(Pixels(65.0));
 
-                                Element::new(cx)
-                                    .height(Pixels(8.0))
-                                    .width(Stretch(1.0))
-                                    .background_color(ColorPalette::SURFACE_ELEVATED)
-                                    .corner_radius(Pixels(4.0));
-                            });
-
-                            VStack::new(cx, |cx| {
-                                Label::new(cx, "Sustain")
-                                    .font_size(10.0)
-                                    .color(ColorPalette::TEXT_PRIMARY)
-                                    .height(Pixels(14.0));
-
-                                Element::new(cx)
-                                    .height(Pixels(8.0))
-                                    .width(Stretch(1.0))
-                                    .background_color(ColorPalette::SURFACE_ELEVATED)
-                                    .corner_radius(Pixels(4.0));
-                            });
-
-                            VStack::new(cx, |cx| {
-                                Label::new(cx, "Release")
-                                    .font_size(10.0)
-                                    .color(ColorPalette::TEXT_PRIMARY)
-                                    .height(Pixels(14.0));
-
-                                Element::new(cx)
-                                    .height(Pixels(8.0))
-                                    .width(Stretch(1.0))
-                                    .background_color(ColorPalette::SURFACE_ELEVATED)
-                                    .corner_radius(Pixels(4.0));
-                            });
+                                VStack::new(cx, |cx| {
+                                    Label::new(cx, "Release")
+                                        .font_size(9.0)
+                                        .color(ColorPalette::TEXT_PRIMARY)
+                                        .height(Pixels(10.0))
+                                        .text_align(TextAlign::Center);
+                                    ParamKnob::new(cx, Data::params, |p| &p.release)
+                                        .width(Pixels(50.0))
+                                        .height(Pixels(50.0));
+                                })
+                                .space(Pixels(1.0))
+                                .alignment(Alignment::Center)
+                                .width(Pixels(60.0))
+                                .height(Pixels(65.0));
+                            })
+                            .space(Pixels(20.0))
+                            .alignment(Alignment::Center);
                         })
-                        .space(Pixels(10.0))
-                        .padding(Pixels(14.0))
+                        .space(Pixels(15.0))
+                        .padding(Pixels(12.0))
                         .background_color(ColorPalette::SURFACE)
                         .border_width(Pixels(1.0))
                         .border_color(ColorPalette::BORDER)
                         .corner_radius(Pixels(6.0));
                     })
-                    .space(Pixels(12.0));
+                    .space(Pixels(8.0));
                 }
 
                 _ => {
