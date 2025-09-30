@@ -720,7 +720,7 @@ pub(crate) fn create(
         .build(cx);
 
         VStack::new(cx, |cx| {
-            Label::new(cx, "TripleOsc")
+            Label::new(cx, "ToneMorph")
                 .font_family(vec![FamilyOwned::Named(String::from(NOTO_SANS))])
                 .font_weight(FontWeightKeyword::Bold)
                 .font_size(15.0)

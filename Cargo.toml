@@ -11,8 +11,15 @@ members = ["xtask"]
 
 [dependencies]
 nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", features = ["assert_process_allocs", "standalone"] }
-vizia_plug = { git = "https://github.com/vizia/vizia-plug.git", branch = "main"}
+vizia_plug = { git = "https://github.com/vizia/vizia-plug.git", branch = "main" }
 fluent-bundle = "0.15.3"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
+rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", features = ["server", "transport-io", "macros"] }
+tokio = { version = "1.35", features = ["full"] }
+anyhow = "1.0"
+schemars = "1.0"
+crossbeam-channel = "0.5"
 
 [lib]
 crate-type = ["cdylib", "lib"]

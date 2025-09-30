@@ -9,6 +9,7 @@ use vizia_plug::ViziaState;
 mod editor;
 mod knob;
 mod tab_switcher;
+mod mcp_server;
 
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FilterMode {
