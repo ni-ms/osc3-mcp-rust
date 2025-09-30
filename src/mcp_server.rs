@@ -202,10 +202,10 @@ impl VSTMCPServer {
                     self.params.frequency2.set_value(freq.clamp(20.0, 20000.0));
                     updates.push(format!("frequency2: {}", freq));
                 }
-                // ... (continue for all osc2 parameters)
+
             }
             3 => {
-                // Similar implementation for oscillator 3
+
                 if let Some(waveform) = &params.waveform {
                     if let Ok(wf) = self.parse_waveform(waveform) {
                         self.params.waveform3.set_value(wf);
@@ -216,7 +216,7 @@ impl VSTMCPServer {
                     self.params.frequency3.set_value(freq.clamp(20.0, 20000.0));
                     updates.push(format!("frequency3: {}", freq));
                 }
-                // ... (continue for all osc3 parameters)
+
             }
             _ => unreachable!(),
         }
