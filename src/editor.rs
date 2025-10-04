@@ -1,5 +1,5 @@
 use crate::knob::ParamKnob;
-use crate::{FilterMode, SineParams, Waveform};
+use crate::{chat_ui, FilterMode, SineParams, Waveform};
 use nih_plug::prelude::{Editor, EnumParam, Param};
 use std::sync::Arc;
 use vizia_plug::vizia::prelude::*;
@@ -962,6 +962,8 @@ pub(crate) fn create(
                         .class("panel");
                     })
                     .class("block-8");
+
+                    chat_ui::chat_panel(cx);
                 }
 
                 _ => {

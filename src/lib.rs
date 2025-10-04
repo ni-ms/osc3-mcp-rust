@@ -10,6 +10,7 @@ mod editor;
 mod knob;
 mod tab_switcher;
 mod mcp_server;
+mod chat_ui;
 
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FilterMode {
