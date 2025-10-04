@@ -45,7 +45,75 @@ pub(crate) fn default_state() -> Arc<ViziaState> {
     ViziaState::new(|| (600, 650))
 }
 
-fn octave_counter<L>(
+const OCTAVE_COUNTER_THEME: &str = r#"
+.octave-counter {
+  width: 60px;
+  height: 30px;
+  align: center;
+  child-space: 1px;
+}
+
+.knob-label {
+  color: #F8FAFC;
+  font-size: 9px;
+  height: 10px;
+  text-align: center;
+}
+
+.counter-row {
+  align: center;
+  col-between: 0px;
+}
+
+button.counter-btn {
+  width: 18px;
+  height: 20px;
+  background-color: #202028;
+  border: 1px solid #334155;
+  border-radius: 3px;
+  color: #F8FAFC;
+  font-size: 12px;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+button.counter-btn:hover {
+  background-color: #1E293B;
+}
+
+button.counter-btn:active {
+  background-color: #3B82F6;
+  color: #0B1020;
+}
+
+.counter-value {
+  width: 30px;
+  height: 20px;
+  background-color: #18181E;
+  border: 1px solid #334155;
+  color: #F8FAFC;
+  font-size: 10px;
+  text-align: center;
+}
+"#;
+
+fn adjust_octave(
+    cx: &mut EventContext,
+    params_arc: &Arc<SineParams>,
+    map: impl Fn(&SineParams) -> &nih_plug::prelude::IntParam,
+    delta: i32,
+) {
+    let param = map(&*params_arc);
+    let ptr = param.as_ptr();
+    let current = param.modulated_plain_value();
+    let new = (current + delta).clamp(-4, 4);
+    let norm = param.preview_normalized(new);
+
+    cx.emit(RawParamEvent::BeginSetParameter(ptr));
+    cx.emit(RawParamEvent::SetParameterNormalized(ptr, norm));
+    cx.emit(RawParamEvent::EndSetParameter(ptr));
+}
+
+pub fn octave_counter<L>(
     cx: &mut Context,
     params: L,
     octave_map: impl Fn(&SineParams) -> &nih_plug::prelude::IntParam + Copy + Send + Sync + 'static,
@@ -53,104 +121,53 @@ fn octave_counter<L>(
 where
     L: Lens<Target = Arc<SineParams>> + Clone + 'static + Send + Sync,
 {
+    cx.add_stylesheet(OCTAVE_COUNTER_THEME);
+
     VStack::new(cx, |cx| {
-        Label::new(cx, "Octave")
-            .font_size(9.0)
-            .color(ColorPalette::TEXT_PRIMARY)
-            .height(Pixels(10.0))
-            .text_align(TextAlign::Center);
+        Label::new(cx, "Octave").class("knob-label");
 
         HStack::new(cx, |cx| {
-            Button::new(cx, |cx| {
-                Label::new(cx, "−")
-                    .font_size(12.0)
-                    .color(ColorPalette::TEXT_PRIMARY)
-            })
-            .width(Pixels(16.0))
-            .height(Pixels(18.0))
-            .background_color(ColorPalette::SURFACE_ELEVATED)
-            .border_width(Pixels(1.0))
-            .border_color(ColorPalette::BORDER)
-            .corner_radius(Pixels(2.0))
-            .cursor(CursorIcon::Hand)
-            .on_press({
-                let params = params.clone();
-                move |cx| {
-                    let params_arc = params.get(cx);
-                    let param = octave_map(&*params_arc);
-                    let param_ptr = param.as_ptr();
-                    let current_value = param.modulated_plain_value();
-                    let new_value = (current_value - 1).max(-4);
-                    let normalized_value = param.preview_normalized(new_value);
-
-                    cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
-                    cx.emit(RawParamEvent::SetParameterNormalized(
-                        param_ptr,
-                        normalized_value,
-                    ));
-                    cx.emit(RawParamEvent::EndSetParameter(param_ptr));
-                }
-            });
+            Button::new(cx, |cx| Label::new(cx, "−"))
+                .class("counter-btn")
+                .class("minus")
+                .cursor(CursorIcon::Hand)
+                .on_press({
+                    let params = params.clone();
+                    move |cx| {
+                        let p = params.get(cx);
+                        adjust_octave(cx, &p, octave_map, -1);
+                    }
+                });
 
             Label::new(
                 cx,
                 params.clone().map(move |p| {
                     let param = octave_map(&*p);
-                    let value = param.modulated_plain_value();
-                    if value >= 0 {
-                        format!("+{}", value)
+                    let v = param.modulated_plain_value();
+                    if v >= 0 {
+                        format!("+{}", v)
                     } else {
-                        format!("{}", value)
+                        format!("{}", v)
                     }
                 }),
             )
-            .width(Pixels(28.0))
-            .height(Pixels(18.0))
-            .background_color(ColorPalette::SURFACE)
-            .border_width(Pixels(1.0))
-            .border_color(ColorPalette::BORDER)
-            .font_size(9.0)
-            .color(ColorPalette::TEXT_PRIMARY)
-            .text_align(TextAlign::Center);
+            .class("counter-value");
 
-            Button::new(cx, |cx| {
-                Label::new(cx, "+")
-                    .font_size(12.0)
-                    .color(ColorPalette::TEXT_PRIMARY)
-            })
-            .width(Pixels(16.0))
-            .height(Pixels(18.0))
-            .background_color(ColorPalette::SURFACE_ELEVATED)
-            .border_width(Pixels(1.0))
-            .border_color(ColorPalette::BORDER)
-            .corner_radius(Pixels(2.0))
-            .cursor(CursorIcon::Hand)
-            .on_press({
-                let params = params.clone();
-                move |cx| {
-                    let params_arc = params.get(cx);
-                    let param = octave_map(&*params_arc);
-                    let param_ptr = param.as_ptr();
-                    let current_value = param.modulated_plain_value();
-                    let new_value = (current_value + 1).min(4);
-                    let normalized_value = param.preview_normalized(new_value);
-
-                    cx.emit(RawParamEvent::BeginSetParameter(param_ptr));
-                    cx.emit(RawParamEvent::SetParameterNormalized(
-                        param_ptr,
-                        normalized_value,
-                    ));
-                    cx.emit(RawParamEvent::EndSetParameter(param_ptr));
-                }
-            });
+            Button::new(cx, |cx| Label::new(cx, "+"))
+                .class("counter-btn")
+                .class("plus")
+                .cursor(CursorIcon::Hand)
+                .on_press({
+                    let params = params.clone();
+                    move |cx| {
+                        let p = params.get(cx);
+                        adjust_octave(cx, &p, octave_map, 1);
+                    }
+                });
         })
-        .space(Pixels(0.0))
-        .alignment(Alignment::Center);
+        .class("counter-row");
     })
-    .space(Pixels(1.0))
-    .alignment(Alignment::Center)
-    .width(Pixels(60.0))
-    .height(Pixels(30.0))
+    .class("octave-counter")
 }
 
 fn waveform_dropdown<L>(
