@@ -3,10 +3,10 @@ use vizia_plug::vizia::prelude::*;
 use vizia_plug::widgets::param_base::ParamWidgetBase;
 
 const KNOB_CSS: &str = r#"
-/* Space knobs so they never visually crowd */
+
 .param-knob { margin: 3px; cursor: pointer; }
 .param-knob:hover { filter: brightness(1.08); }
-/* Optional: label alignment helpers if used under knobs */
+
 .knob-col { align-items: center; justify-content: center; }
 "#;
 

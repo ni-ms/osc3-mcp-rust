@@ -698,12 +698,86 @@ fn filter_mode_to_str(mode: &FilterMode) -> &'static str {
     }
 }
 
+const UI_STYLESHEET: &str = r#"
+
+.root {
+  background-color: #121216;
+  child-space: 6px;
+  padding: 10px;
+}
+
+
+.title {
+  color: #F8FAFC;
+  font-weight: 700;
+  font-size: 15px;
+  height: 20px;
+  text-align: center;
+}
+
+
+.section-title {
+  height: 16px;
+  child-space: 4px;
+  align: center;
+}
+
+
+.section-pip {
+  width: 2px;
+  height: 12px;
+  background-color: #6366F1;
+}
+
+
+.section-text {
+  color: #F8FAFC;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+
+.text-muted {
+  color: #94A3B8;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.panel {
+  background-color: #18181E;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+
+.block-4 { child-space: 4px; }
+.block-5 { child-space: 5px; }
+.block-8 { child-space: 8px; }
+.block-12 { child-space: 12px; }
+.row-20 { col-between: 20px; }
+
+
+.knob-col {
+  width: 60px;
+  height: 65px;
+  align: center;
+  child-space: 1px;
+}
+
+.knob-label {
+  color: #F8FAFC;
+  font-size: 9px;
+  height: 10px;
+  text-align: center;
+}
+"#;
 pub(crate) fn create(
     params: Arc<SineParams>,
     editor_state: Arc<ViziaState>,
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
-        register_theme(cx);
+        cx.add_stylesheet(UI_STYLESHEET);
 
         Data {
             params: params.clone(),
@@ -711,18 +785,13 @@ pub(crate) fn create(
         .build(cx);
 
         VStack::new(cx, |cx| {
-            Label::new(cx, "ToneMorph")
-                .font_family(vec![FamilyOwned::Named(String::from(NOTO_SANS))])
-                .font_weight(FontWeightKeyword::Bold)
-                .font_size(15.0)
-                .color(ColorPalette::TEXT_PRIMARY)
-                .text_align(TextAlign::Center)
-                .height(Pixels(20.0));
+            Label::new(cx, "ToneMorph").class("title");
 
             let tabs = vec![
                 TabDefinition::new("oscillators", "Oscillators").with_width(120.0),
                 TabDefinition::new("envelope", "Envelope").with_width(100.0),
                 TabDefinition::new("filters_fx", "Filters & FX").with_width(120.0),
+                TabDefinition::new("ai", "AI").with_width(60.0),
             ];
 
             TabSwitcher::new(cx, tabs, |cx, tab_id, _index| match tab_id {
@@ -743,7 +812,6 @@ pub(crate) fn create(
                             |p| &p.unison_blend1,
                             |p| &p.unison_volume1,
                         );
-
                         create_oscillator_section(
                             cx,
                             "Oscillator 2",
@@ -759,7 +827,6 @@ pub(crate) fn create(
                             |p| &p.unison_blend2,
                             |p| &p.unison_volume2,
                         );
-
                         create_oscillator_section(
                             cx,
                             "Oscillator 3",
@@ -776,146 +843,117 @@ pub(crate) fn create(
                             |p| &p.unison_volume3,
                         );
                     })
-                    .space(Pixels(5.0));
+                    .class("block-5");
                 }
 
                 "filters_fx" => {
                     VStack::new(cx, |cx| {
+                        HStack::new(cx, |cx| {
+                            Element::new(cx).class("section-pip");
+                            Label::new(cx, "Filters & FX").class("section-text");
+                        })
+                        .class("section-title");
+
                         create_filter_section(cx);
 
                         VStack::new(cx, |cx| {
                             HStack::new(cx, |cx| {
-                                Element::new(cx)
-                                    .width(Pixels(2.0))
-                                    .height(Pixels(12.0))
-                                    .background_color(ColorPalette::PRIMARY);
-                                Label::new(cx, "Effects (Coming Soon)")
-                                    .font_size(11.0)
-                                    .font_weight(FontWeightKeyword::Medium)
-                                    .color(ColorPalette::TEXT_SECONDARY);
+                                Element::new(cx).class("section-pip");
+                                Label::new(cx, "Effects (Coming Soon)").class("text-muted");
                             })
-                            .space(Pixels(4.0))
-                            .height(Pixels(14.0));
+                            .class("section-title");
 
-                            Element::new(cx)
-                                .width(Stretch(1.0))
-                                .height(Pixels(80.0))
-                                .background_color(ColorPalette::SURFACE)
-                                .border_width(Pixels(1.0))
-                                .border_color(ColorPalette::BORDER)
-                                .corner_radius(Pixels(6.0));
+                            Element::new(cx).class("panel").height(Pixels(80.0));
                         })
-                        .padding(Pixels(8.0));
+                        .class("block-8");
                     })
-                    .space(Pixels(8.0));
+                    .class("block-8");
                 }
 
                 "envelope" => {
                     VStack::new(cx, |cx| {
                         HStack::new(cx, |cx| {
-                            Element::new(cx)
-                                .width(Pixels(2.0))
-                                .height(Pixels(12.0))
-                                .background_color(ColorPalette::PRIMARY);
-                            Label::new(cx, "Envelope")
-                                .font_size(11.0)
-                                .font_weight(FontWeightKeyword::Medium)
-                                .color(ColorPalette::TEXT_PRIMARY);
+                            Element::new(cx).class("section-pip");
+                            Label::new(cx, "Envelope").class("section-text");
                         })
-                        .space(Pixels(4.0))
-                        .height(Pixels(16.0));
+                        .class("section-title");
 
                         VStack::new(cx, |cx| {
                             HStack::new(cx, |cx| {
                                 VStack::new(cx, |cx| {
-                                    Label::new(cx, "Attack")
-                                        .font_size(9.0)
-                                        .color(ColorPalette::TEXT_PRIMARY)
-                                        .height(Pixels(10.0))
-                                        .text_align(TextAlign::Center);
+                                    Label::new(cx, "Attack").class("knob-label");
                                     ParamKnob::new(cx, Data::params, |p| &p.attack)
                                         .width(Pixels(50.0))
                                         .height(Pixels(50.0));
                                 })
-                                .space(Pixels(1.0))
-                                .alignment(Alignment::Center)
-                                .width(Pixels(60.0))
-                                .height(Pixels(65.0));
+                                .class("knob-col");
 
                                 VStack::new(cx, |cx| {
-                                    Label::new(cx, "Decay")
-                                        .font_size(9.0)
-                                        .color(ColorPalette::TEXT_PRIMARY)
-                                        .height(Pixels(10.0))
-                                        .text_align(TextAlign::Center);
+                                    Label::new(cx, "Decay").class("knob-label");
                                     ParamKnob::new(cx, Data::params, |p| &p.decay)
                                         .width(Pixels(50.0))
                                         .height(Pixels(50.0));
                                 })
-                                .space(Pixels(1.0))
-                                .alignment(Alignment::Center)
-                                .width(Pixels(60.0))
-                                .height(Pixels(65.0));
+                                .class("knob-col");
                             })
-                            .space(Pixels(20.0))
+                            .class("row-20")
                             .alignment(Alignment::Center);
 
                             HStack::new(cx, |cx| {
                                 VStack::new(cx, |cx| {
-                                    Label::new(cx, "Sustain")
-                                        .font_size(9.0)
-                                        .color(ColorPalette::TEXT_PRIMARY)
-                                        .height(Pixels(10.0))
-                                        .text_align(TextAlign::Center);
+                                    Label::new(cx, "Sustain").class("knob-label");
                                     ParamKnob::new(cx, Data::params, |p| &p.sustain)
                                         .width(Pixels(50.0))
                                         .height(Pixels(50.0));
                                 })
-                                .space(Pixels(1.0))
-                                .alignment(Alignment::Center)
-                                .width(Pixels(60.0))
-                                .height(Pixels(65.0));
+                                .class("knob-col");
 
                                 VStack::new(cx, |cx| {
-                                    Label::new(cx, "Release")
-                                        .font_size(9.0)
-                                        .color(ColorPalette::TEXT_PRIMARY)
-                                        .height(Pixels(10.0))
-                                        .text_align(TextAlign::Center);
+                                    Label::new(cx, "Release").class("knob-label");
                                     ParamKnob::new(cx, Data::params, |p| &p.release)
                                         .width(Pixels(50.0))
                                         .height(Pixels(50.0));
                                 })
-                                .space(Pixels(1.0))
-                                .alignment(Alignment::Center)
-                                .width(Pixels(60.0))
-                                .height(Pixels(65.0));
+                                .class("knob-col");
                             })
-                            .space(Pixels(20.0))
+                            .class("row-20")
                             .alignment(Alignment::Center);
                         })
-                        .space(Pixels(15.0))
-                        .padding(Pixels(12.0))
-                        .background_color(ColorPalette::SURFACE)
-                        .border_width(Pixels(1.0))
-                        .border_color(ColorPalette::BORDER)
-                        .corner_radius(Pixels(6.0));
+                        .class("panel");
                     })
-                    .space(Pixels(8.0));
+                    .class("block-8");
+                }
+
+                "ai" => {
+                    VStack::new(cx, |cx| {
+                        HStack::new(cx, |cx| {
+                            Element::new(cx).class("section-pip");
+                            Label::new(cx, "AI").class("section-text");
+                        })
+                        .class("section-title");
+
+                        VStack::new(cx, |cx| {
+                            Label::new(cx, "AI Presets (Coming Soon)").class("text-muted");
+                            HStack::new(cx, |cx| {
+                                Button::new(cx, |cx| Label::new(cx, "Randomize Patch"))
+                                    .on_press(|_cx| { /* hook up later */ });
+                                Button::new(cx, |cx| Label::new(cx, "Suggest Envelope"))
+                                    .on_press(|_cx| { /* hook up later */ });
+                            })
+                            .class("block-8");
+                        })
+                        .class("panel");
+                    })
+                    .class("block-8");
                 }
 
                 _ => {
-                    Label::new(cx, "Unknown Tab")
-                        .font_size(12.0)
-                        .color(ColorPalette::TEXT_PRIMARY)
-                        .text_align(TextAlign::Center);
+                    Label::new(cx, "Unknown Tab").class("text-muted");
                 }
             })
             .width(Stretch(1.0))
             .height(Stretch(1.0));
         })
-        .padding(Pixels(10.0))
-        .background_color(ColorPalette::BACKGROUND)
-        .space(Pixels(6.0));
+        .class("root");
     })
 }
