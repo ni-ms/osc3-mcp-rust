@@ -712,8 +712,6 @@ pub(crate) fn create(
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
         register_theme(cx);
 
-        cx.add_stylesheet("assets/knob.css")
-            .expect("Failed to load stylesheet");
         Data {
             params: params.clone(),
         }
