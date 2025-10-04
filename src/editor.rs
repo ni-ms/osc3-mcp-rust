@@ -23,7 +23,7 @@ impl ColorPalette {
     pub const OSC1_ACCENT: Color = Color::rgb(59, 130, 246);
     pub const OSC2_ACCENT: Color = Color::rgb(34, 197, 94);
     pub const OSC3_ACCENT: Color = Color::rgb(239, 68, 68);
-    pub const FILTER_ACCENT: Color = Color::rgb(168, 85, 247); // Purple for filter section
+    pub const FILTER_ACCENT: Color = Color::rgb(168, 85, 247);
 
     pub const TEXT_PRIMARY: Color = Color::rgb(248, 250, 252);
     pub const TEXT_SECONDARY: Color = Color::rgb(148, 163, 184);
@@ -254,7 +254,6 @@ where
     .placement(Placement::Bottom)
 }
 
-// New function for filter mode dropdown
 fn filter_mode_dropdown<L>(
     cx: &mut Context,
     params: L,
@@ -595,10 +594,8 @@ fn create_oscillator_section(
     .corner_radius(Pixels(6.0));
 }
 
-// New function to create the filter section
 fn create_filter_section(cx: &mut Context) {
     VStack::new(cx, |cx| {
-        // Filter section header
         HStack::new(cx, |cx| {
             Element::new(cx)
                 .width(Pixels(2.0))
@@ -612,20 +609,17 @@ fn create_filter_section(cx: &mut Context) {
         .space(Pixels(4.0))
         .height(Pixels(14.0));
 
-        // Filter mode selector
         HStack::new(cx, |cx| {
             Label::new(cx, "Mode")
                 .width(Pixels(35.0))
                 .font_size(10.0)
                 .color(ColorPalette::TEXT_PRIMARY);
 
-            // You'll need to add filter_mode parameter to your SineParams
             filter_mode_dropdown(cx, Data::params, |p| &p.filter_mode);
         })
         .height(Pixels(30.0))
         .alignment(Alignment::Center);
 
-        // Filter controls (cutoff, resonance, drive)
         VStack::new(cx, |cx| {
             HStack::new(cx, |cx| {
                 VStack::new(cx, |cx| {
@@ -695,7 +689,6 @@ fn waveform_to_str(w: &Waveform) -> &'static str {
     }
 }
 
-// New function to convert filter mode to string
 fn filter_mode_to_str(mode: &FilterMode) -> &'static str {
     match mode {
         FilterMode::LowPass => "Low Pass",
@@ -726,7 +719,6 @@ pub(crate) fn create(
                 .text_align(TextAlign::Center)
                 .height(Pixels(20.0));
 
-            // Updated tabs to include Filters and FX
             let tabs = vec![
                 TabDefinition::new("oscillators", "Oscillators").with_width(120.0),
                 TabDefinition::new("envelope", "Envelope").with_width(100.0),
@@ -787,12 +779,10 @@ pub(crate) fn create(
                     .space(Pixels(5.0));
                 }
 
-                // New Filters and FX tab
                 "filters_fx" => {
                     VStack::new(cx, |cx| {
                         create_filter_section(cx);
 
-                        // Placeholder for future FX sections
                         VStack::new(cx, |cx| {
                             HStack::new(cx, |cx| {
                                 Element::new(cx)
@@ -822,7 +812,6 @@ pub(crate) fn create(
 
                 "envelope" => {
                     VStack::new(cx, |cx| {
-
                         HStack::new(cx, |cx| {
                             Element::new(cx)
                                 .width(Pixels(2.0))
