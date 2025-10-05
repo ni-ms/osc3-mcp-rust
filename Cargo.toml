@@ -20,6 +20,7 @@ tokio = { version = "1.35", features = ["full"] }
 anyhow = "1.0"
 schemars = "1.0"
 crossbeam-channel = "0.5"
+tracing = "0.1.41"
 
 [lib]
 crate-type = ["cdylib", "lib"]

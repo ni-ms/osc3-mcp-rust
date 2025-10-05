@@ -1,14 +1,13 @@
 use crate::knob::ParamKnob;
-use crate::{chat_ui, FilterMode, SineParams, Waveform};
+use crate::{chat_ui, FilterMode, McpPluginState, SineParams, Waveform};
 use nih_plug::prelude::{Editor, EnumParam, Param};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use vizia_plug::vizia::prelude::*;
 use vizia_plug::widgets::*;
 use vizia_plug::{create_vizia_editor, ViziaState, ViziaTheming};
 
 use crate::tab_switcher::{TabDefinition, TabSwitcher};
-
-pub const NOTO_SANS: &str = "Noto Sans";
 
 struct ColorPalette;
 impl ColorPalette {
@@ -792,6 +791,7 @@ const UI_STYLESHEET: &str = r#"
 pub(crate) fn create(
     params: Arc<SineParams>,
     editor_state: Arc<ViziaState>,
+    mcp_state: Arc<RwLock<McpPluginState>>,
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
         cx.add_stylesheet(UI_STYLESHEET);
@@ -800,6 +800,8 @@ pub(crate) fn create(
             params: params.clone(),
         }
         .build(cx);
+
+        let mcp_state_for_tabs = mcp_state.clone();
 
         VStack::new(cx, |cx| {
             Label::new(cx, "ToneMorph").class("title");
@@ -811,7 +813,7 @@ pub(crate) fn create(
                 TabDefinition::new("ai", "AI").with_width(60.0),
             ];
 
-            TabSwitcher::new(cx, tabs, |cx, tab_id, _index| match tab_id {
+            TabSwitcher::new(cx, tabs, move |cx, tab_id, _index| match tab_id {
                 "oscillators" => {
                     VStack::new(cx, |cx| {
                         create_oscillator_section(
@@ -963,7 +965,7 @@ pub(crate) fn create(
                     })
                     .class("block-8");
 
-                    chat_ui::chat_panel(cx);
+                    chat_ui::chat_panel(cx, mcp_state_for_tabs.clone());
                 }
 
                 _ => {
