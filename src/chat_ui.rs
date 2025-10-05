@@ -1,4 +1,3 @@
-
 use crate::mcp_server::PluginState as McpPluginState;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -154,7 +153,6 @@ impl Model for ChatState {
 
                 self.sending = true;
 
-                
                 let mcp_state = self.mcp_state.clone();
                 let reply = process_command(&trimmed, mcp_state);
 
@@ -164,7 +162,7 @@ impl Model for ChatState {
                 self.sending = false;
                 self.messages.push(ChatMessage {
                     role: Role::Assistant,
-                    text: *reply,
+                    text: reply.clone(),
                 });
             }
             ChatEvent::Clear => {
@@ -178,12 +176,10 @@ fn process_command(input: &str, mcp_state: Arc<RwLock<McpPluginState>>) -> Strin
     let lower = input.to_lowercase();
     let parts: Vec<&str> = input.split_whitespace().collect();
 
-    
     let rt = tokio::runtime::Runtime::new().unwrap();
 
     rt.block_on(async {
         if lower.contains("show state") || lower.contains("list") || lower.contains("get state") {
-            
             let state = mcp_state.read().await;
             format!(
                 "Current Synthesizer State:\n\n\
@@ -220,13 +216,13 @@ fn process_command(input: &str, mcp_state: Arc<RwLock<McpPluginState>>) -> Strin
                 state.envelope_release
             )
         } else if lower.starts_with("set osc") || lower.starts_with("osc") {
-            
-            
-            let osc_idx = parts
-                .iter()
-                .position(|&p| p == "osc")
-                .and_then(|i| parts.get(&(i + 1)))
-                .and_then(|s| s.parse::<u8>().ok());
+            let osc_idx = parts.iter().position(|&p| p == "osc").and_then(|i| {
+                if i + 1 < parts.len() {
+                    parts[i + 1].parse::<u8>().ok()
+                } else {
+                    None
+                }
+            });
 
             if let Some(osc) = osc_idx {
                 if osc < 1 || osc > 3 {
@@ -235,7 +231,6 @@ fn process_command(input: &str, mcp_state: Arc<RwLock<McpPluginState>>) -> Strin
 
                 let mut state = mcp_state.write().await;
 
-                
                 if lower.contains("waveform") || lower.contains("wave") {
                     if let Some(wave) = parts.iter().find(|&&p| {
                         let pl = p.to_lowercase();
@@ -258,7 +253,6 @@ fn process_command(input: &str, mcp_state: Arc<RwLock<McpPluginState>>) -> Strin
                     }
                 }
 
-                
                 if lower.contains("freq") || lower.contains("frequency") {
                     if let Some(freq_str) = parts
                         .iter()
@@ -277,7 +271,6 @@ fn process_command(input: &str, mcp_state: Arc<RwLock<McpPluginState>>) -> Strin
                     }
                 }
 
-                
                 if lower.contains("gain") || lower.contains("volume") {
                     if let Some(gain_str) = parts
                         .iter()
@@ -299,7 +292,6 @@ fn process_command(input: &str, mcp_state: Arc<RwLock<McpPluginState>>) -> Strin
                     }
                 }
 
-                
                 if lower.contains("octave") {
                     if let Some(oct_str) = parts
                         .iter()
@@ -325,7 +317,6 @@ fn process_command(input: &str, mcp_state: Arc<RwLock<McpPluginState>>) -> Strin
         } else if lower.starts_with("set filter") || lower.starts_with("filter") {
             let mut state = mcp_state.write().await;
 
-            
             if lower.contains("mode") {
                 if let Some(mode) = parts.iter().find(|&&p| {
                     let pl = p.to_lowercase();
@@ -341,7 +332,6 @@ fn process_command(input: &str, mcp_state: Arc<RwLock<McpPluginState>>) -> Strin
                 }
             }
 
-            
             if lower.contains("cutoff") {
                 if let Some(cutoff_str) = parts
                     .iter()
@@ -355,7 +345,6 @@ fn process_command(input: &str, mcp_state: Arc<RwLock<McpPluginState>>) -> Strin
                 }
             }
 
-            
             if lower.contains("resonance") || lower.contains("res") {
                 if let Some(res_str) = parts
                     .iter()
@@ -372,7 +361,6 @@ fn process_command(input: &str, mcp_state: Arc<RwLock<McpPluginState>>) -> Strin
                 }
             }
 
-            
             if lower.contains("drive") {
                 if let Some(drive_str) = parts
                     .iter()
