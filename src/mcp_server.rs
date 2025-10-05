@@ -1,27 +1,25 @@
 // mcp_server.rs
+use crate::{FilterMode, Waveform};
+use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{
-    handler::server::{router::tool::ToolRouter},
-    model::{ErrorData as McpError, *},
-    schemars, tool, tool_handler, tool_router, ServerHandler, ServiceExt,
+    handler::server::router::tool::ToolRouter, model::{ErrorData as McpError, *},
+    schemars,
+    tool,
+    tool_handler, tool_router, ServerHandler, ServiceExt,
 };
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::borrow::Cow;
-use rmcp::handler::server::wrapper::Parameters;
-use crate::{FilterMode, Waveform};
 
-/// Shared state for the MCP server
 #[derive(Clone)]
 pub struct SynthMcpServer {
     params: Arc<RwLock<PluginState>>,
     tool_router: ToolRouter<Self>,
 }
 
-/// Serializable state snapshot of plugin parameters
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct PluginState {
-    // Oscillator 1
     pub osc1_waveform: String,
     pub osc1_frequency: f32,
     pub osc1_detune: f32,
@@ -33,7 +31,6 @@ pub struct PluginState {
     pub osc1_unison_blend: f32,
     pub osc1_unison_volume: f32,
 
-    // Oscillator 2
     pub osc2_waveform: String,
     pub osc2_frequency: f32,
     pub osc2_detune: f32,
@@ -45,7 +42,6 @@ pub struct PluginState {
     pub osc2_unison_blend: f32,
     pub osc2_unison_volume: f32,
 
-    // Oscillator 3
     pub osc3_waveform: String,
     pub osc3_frequency: f32,
     pub osc3_detune: f32,
@@ -57,13 +53,11 @@ pub struct PluginState {
     pub osc3_unison_blend: f32,
     pub osc3_unison_volume: f32,
 
-    // Filter
     pub filter_mode: String,
     pub filter_cutoff: f32,
     pub filter_resonance: f32,
     pub filter_drive: f32,
 
-    // Envelope
     pub envelope_attack: f32,
     pub envelope_decay: f32,
     pub envelope_sustain: f32,
@@ -119,7 +113,6 @@ impl Default for PluginState {
     }
 }
 
-// Parameter structures
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetStateParams {}
 
@@ -205,26 +198,26 @@ impl SynthMcpServer {
         self.params.clone()
     }
 
-    /// Get the current state of all synthesizer parameters
-    #[tool(description = "Get the current state of all synthesizer parameters including oscillators, filter, and envelope settings")]
+    #[tool(
+        description = "Get the current state of all synthesizer parameters including oscillators, filter, and envelope settings"
+    )]
     async fn get_synth_state(
         &self,
         Parameters(_params): Parameters<GetStateParams>,
     ) -> Result<CallToolResult, McpError> {
         let state = self.params.read().await;
-        let json = serde_json::to_string_pretty(&*state)
-            .map_err(|e| McpError {
-                code: ErrorCode(-32603),
-                message: Cow::from(format!("Serialization error: {}", e)),
-                data: None,
-            })?;
+        let json = serde_json::to_string_pretty(&*state).map_err(|e| McpError {
+            code: ErrorCode(-32603),
+            message: Cow::from(format!("Serialization error: {}", e)),
+            data: None,
+        })?;
 
-        Ok(CallToolResult::success(vec![
-            Content::text(format!("Current Synthesizer State:\n\n{}", json))
-        ]))
+        Ok(CallToolResult::success(vec![Content::text(format!(
+            "Current Synthesizer State:\n\n{}",
+            json
+        ))]))
     }
 
-    /// Set oscillator parameters
     #[tool(description = "Set parameters for one of the three oscillators (1, 2, or 3)")]
     async fn set_oscillator(
         &self,
@@ -253,15 +246,33 @@ impl SynthMcpServer {
                     }
                     state.osc1_waveform = waveform.clone();
                 }
-                if let Some(freq) = params.frequency { state.osc1_frequency = freq.clamp(20.0, 20000.0); }
-                if let Some(detune) = params.detune { state.osc1_detune = detune.clamp(-100.0, 100.0); }
-                if let Some(phase) = params.phase { state.osc1_phase = phase.clamp(0.0, 1.0); }
-                if let Some(gain) = params.gain { state.osc1_gain = gain.clamp(0.0, 1.0); }
-                if let Some(octave) = params.octave { state.osc1_octave = octave.clamp(-4, 4); }
-                if let Some(voices) = params.unison_voices { state.osc1_unison_voices = voices.clamp(1, 8); }
-                if let Some(detune) = params.unison_detune { state.osc1_unison_detune = detune.clamp(0.0, 50.0); }
-                if let Some(blend) = params.unison_blend { state.osc1_unison_blend = blend.clamp(0.0, 1.0); }
-                if let Some(volume) = params.unison_volume { state.osc1_unison_volume = volume.clamp(0.0, 1.0); }
+                if let Some(freq) = params.frequency {
+                    state.osc1_frequency = freq.clamp(20.0, 20000.0);
+                }
+                if let Some(detune) = params.detune {
+                    state.osc1_detune = detune.clamp(-100.0, 100.0);
+                }
+                if let Some(phase) = params.phase {
+                    state.osc1_phase = phase.clamp(0.0, 1.0);
+                }
+                if let Some(gain) = params.gain {
+                    state.osc1_gain = gain.clamp(0.0, 1.0);
+                }
+                if let Some(octave) = params.octave {
+                    state.osc1_octave = octave.clamp(-4, 4);
+                }
+                if let Some(voices) = params.unison_voices {
+                    state.osc1_unison_voices = voices.clamp(1, 8);
+                }
+                if let Some(detune) = params.unison_detune {
+                    state.osc1_unison_detune = detune.clamp(0.0, 50.0);
+                }
+                if let Some(blend) = params.unison_blend {
+                    state.osc1_unison_blend = blend.clamp(0.0, 1.0);
+                }
+                if let Some(volume) = params.unison_volume {
+                    state.osc1_unison_volume = volume.clamp(0.0, 1.0);
+                }
             }
             2 => {
                 if let Some(waveform) = &params.waveform {
@@ -274,15 +285,33 @@ impl SynthMcpServer {
                     }
                     state.osc2_waveform = waveform.clone();
                 }
-                if let Some(freq) = params.frequency { state.osc2_frequency = freq.clamp(20.0, 20000.0); }
-                if let Some(detune) = params.detune { state.osc2_detune = detune.clamp(-100.0, 100.0); }
-                if let Some(phase) = params.phase { state.osc2_phase = phase.clamp(0.0, 1.0); }
-                if let Some(gain) = params.gain { state.osc2_gain = gain.clamp(0.0, 1.0); }
-                if let Some(octave) = params.octave { state.osc2_octave = octave.clamp(-4, 4); }
-                if let Some(voices) = params.unison_voices { state.osc2_unison_voices = voices.clamp(1, 8); }
-                if let Some(detune) = params.unison_detune { state.osc2_unison_detune = detune.clamp(0.0, 50.0); }
-                if let Some(blend) = params.unison_blend { state.osc2_unison_blend = blend.clamp(0.0, 1.0); }
-                if let Some(volume) = params.unison_volume { state.osc2_unison_volume = volume.clamp(0.0, 1.0); }
+                if let Some(freq) = params.frequency {
+                    state.osc2_frequency = freq.clamp(20.0, 20000.0);
+                }
+                if let Some(detune) = params.detune {
+                    state.osc2_detune = detune.clamp(-100.0, 100.0);
+                }
+                if let Some(phase) = params.phase {
+                    state.osc2_phase = phase.clamp(0.0, 1.0);
+                }
+                if let Some(gain) = params.gain {
+                    state.osc2_gain = gain.clamp(0.0, 1.0);
+                }
+                if let Some(octave) = params.octave {
+                    state.osc2_octave = octave.clamp(-4, 4);
+                }
+                if let Some(voices) = params.unison_voices {
+                    state.osc2_unison_voices = voices.clamp(1, 8);
+                }
+                if let Some(detune) = params.unison_detune {
+                    state.osc2_unison_detune = detune.clamp(0.0, 50.0);
+                }
+                if let Some(blend) = params.unison_blend {
+                    state.osc2_unison_blend = blend.clamp(0.0, 1.0);
+                }
+                if let Some(volume) = params.unison_volume {
+                    state.osc2_unison_volume = volume.clamp(0.0, 1.0);
+                }
             }
             3 => {
                 if let Some(waveform) = &params.waveform {
@@ -295,26 +324,46 @@ impl SynthMcpServer {
                     }
                     state.osc3_waveform = waveform.clone();
                 }
-                if let Some(freq) = params.frequency { state.osc3_frequency = freq.clamp(20.0, 20000.0); }
-                if let Some(detune) = params.detune { state.osc3_detune = detune.clamp(-100.0, 100.0); }
-                if let Some(phase) = params.phase { state.osc3_phase = phase.clamp(0.0, 1.0); }
-                if let Some(gain) = params.gain { state.osc3_gain = gain.clamp(0.0, 1.0); }
-                if let Some(octave) = params.octave { state.osc3_octave = octave.clamp(-4, 4); }
-                if let Some(voices) = params.unison_voices { state.osc3_unison_voices = voices.clamp(1, 8); }
-                if let Some(detune) = params.unison_detune { state.osc3_unison_detune = detune.clamp(0.0, 50.0); }
-                if let Some(blend) = params.unison_blend { state.osc3_unison_blend = blend.clamp(0.0, 1.0); }
-                if let Some(volume) = params.unison_volume { state.osc3_unison_volume = volume.clamp(0.0, 1.0); }
+                if let Some(freq) = params.frequency {
+                    state.osc3_frequency = freq.clamp(20.0, 20000.0);
+                }
+                if let Some(detune) = params.detune {
+                    state.osc3_detune = detune.clamp(-100.0, 100.0);
+                }
+                if let Some(phase) = params.phase {
+                    state.osc3_phase = phase.clamp(0.0, 1.0);
+                }
+                if let Some(gain) = params.gain {
+                    state.osc3_gain = gain.clamp(0.0, 1.0);
+                }
+                if let Some(octave) = params.octave {
+                    state.osc3_octave = octave.clamp(-4, 4);
+                }
+                if let Some(voices) = params.unison_voices {
+                    state.osc3_unison_voices = voices.clamp(1, 8);
+                }
+                if let Some(detune) = params.unison_detune {
+                    state.osc3_unison_detune = detune.clamp(0.0, 50.0);
+                }
+                if let Some(blend) = params.unison_blend {
+                    state.osc3_unison_blend = blend.clamp(0.0, 1.0);
+                }
+                if let Some(volume) = params.unison_volume {
+                    state.osc3_unison_volume = volume.clamp(0.0, 1.0);
+                }
             }
             _ => unreachable!(),
         }
 
-        Ok(CallToolResult::success(vec![
-            Content::text(format!("Successfully updated oscillator {}", osc_num))
-        ]))
+        Ok(CallToolResult::success(vec![Content::text(format!(
+            "Successfully updated oscillator {}",
+            osc_num
+        ))]))
     }
 
-    /// Set filter parameters
-    #[tool(description = "Set filter parameters including mode, cutoff frequency, resonance, and drive")]
+    #[tool(
+        description = "Set filter parameters including mode, cutoff frequency, resonance, and drive"
+    )]
     async fn set_filter(
         &self,
         Parameters(params): Parameters<SetFilterParams>,
@@ -344,12 +393,11 @@ impl SynthMcpServer {
             state.filter_drive = drive.clamp(1.0, 5.0);
         }
 
-        Ok(CallToolResult::success(vec![
-            Content::text("Successfully updated filter parameters".to_string())
-        ]))
+        Ok(CallToolResult::success(vec![Content::text(
+            "Successfully updated filter parameters".to_string(),
+        )]))
     }
 
-    /// Set envelope parameters
     #[tool(description = "Set ADSR envelope parameters")]
     async fn set_envelope(
         &self,
@@ -373,13 +421,14 @@ impl SynthMcpServer {
             state.envelope_release = release.clamp(0.001, 10.0);
         }
 
-        Ok(CallToolResult::success(vec![
-            Content::text("Successfully updated envelope parameters".to_string())
-        ]))
+        Ok(CallToolResult::success(vec![Content::text(
+            "Successfully updated envelope parameters".to_string(),
+        )]))
     }
 
-    /// List all available parameters
-    #[tool(description = "List all available synthesizer parameters with their valid ranges and current values")]
+    #[tool(
+        description = "List all available synthesizer parameters with their valid ranges and current values"
+    )]
     async fn list_parameters(
         &self,
         Parameters(_params): Parameters<ListParametersParams>,
@@ -395,18 +444,35 @@ OSCILLATOR 3: waveform={}, freq={} Hz, detune={} cents, gain={}, octave={}, voic
 FILTER: mode={}, cutoff={} Hz, resonance={}, drive={}
 ENVELOPE: attack={} s, decay={} s, sustain={}, release={} s
 "#,
-            state.osc1_waveform, state.osc1_frequency, state.osc1_detune, state.osc1_gain,
-            state.osc1_octave, state.osc1_unison_voices, state.osc1_unison_detune,
-
-            state.osc2_waveform, state.osc2_frequency, state.osc2_detune, state.osc2_gain,
-            state.osc2_octave, state.osc2_unison_voices, state.osc2_unison_detune,
-
-            state.osc3_waveform, state.osc3_frequency, state.osc3_detune, state.osc3_gain,
-            state.osc3_octave, state.osc3_unison_voices, state.osc3_unison_detune,
-
-            state.filter_mode, state.filter_cutoff, state.filter_resonance, state.filter_drive,
-
-            state.envelope_attack, state.envelope_decay, state.envelope_sustain, state.envelope_release
+            state.osc1_waveform,
+            state.osc1_frequency,
+            state.osc1_detune,
+            state.osc1_gain,
+            state.osc1_octave,
+            state.osc1_unison_voices,
+            state.osc1_unison_detune,
+            state.osc2_waveform,
+            state.osc2_frequency,
+            state.osc2_detune,
+            state.osc2_gain,
+            state.osc2_octave,
+            state.osc2_unison_voices,
+            state.osc2_unison_detune,
+            state.osc3_waveform,
+            state.osc3_frequency,
+            state.osc3_detune,
+            state.osc3_gain,
+            state.osc3_octave,
+            state.osc3_unison_voices,
+            state.osc3_unison_detune,
+            state.filter_mode,
+            state.filter_cutoff,
+            state.filter_resonance,
+            state.filter_drive,
+            state.envelope_attack,
+            state.envelope_decay,
+            state.envelope_sustain,
+            state.envelope_release
         );
 
         Ok(CallToolResult::success(vec![Content::text(info)]))
@@ -418,9 +484,7 @@ impl ServerHandler for SynthMcpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             protocol_version: ProtocolVersion::V_2024_11_05,
-            capabilities: ServerCapabilities::builder()
-                .enable_tools()
-                .build(),
+            capabilities: ServerCapabilities::builder().enable_tools().build(),
             server_info: Implementation {
                 name: "triple-osc-synth-mcp".to_string(),
                 title: None,
@@ -437,7 +501,6 @@ impl ServerHandler for SynthMcpServer {
     }
 }
 
-/// Start the MCP server in the background
 pub fn start_mcp_server(state_handle: Arc<RwLock<PluginState>>) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();

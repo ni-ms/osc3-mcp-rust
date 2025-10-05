@@ -10,10 +10,13 @@ const CHAT_STYLES: &str = r#"
   border-radius: 6px;
   padding: 8px;
   child-space: 6px;
+  max-height: 400px;
+  height: 400px;
 }
 
 .chat-header {
   height: 16px;
+  flex-shrink: 0;
   align: center;
   child-space: 6px;
 }
@@ -35,6 +38,17 @@ const CHAT_STYLES: &str = r#"
   border: 1px solid #334155;
   border-radius: 4px;
   padding: 8px;
+  min-height: 0;
+  flex-grow: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.chat-scroll {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .chat-text {
@@ -42,11 +56,13 @@ const CHAT_STYLES: &str = r#"
   font-size: 11px;
   line-height: 1.35;
   white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .chat-input-row {
   col-between: 6px;
   align: center;
+  flex-shrink: 0;
 }
 
 .chat-input {
@@ -70,6 +86,7 @@ const CHAT_STYLES: &str = r#"
   padding-left: 8px;
   padding-right: 8px;
   transition: background-color 120ms ease, color 120ms ease;
+  flex-shrink: 0;
 }
 
 .chat-send:hover {
@@ -83,6 +100,7 @@ const CHAT_STYLES: &str = r#"
 
 .chat-toolbar {
   col-between: 6px;
+  flex-shrink: 0;
 }
 "#;
 
@@ -495,8 +513,7 @@ pub fn chat_panel(
                     .class("chat-text")
                     .width(Stretch(1.0));
             })
-            .width(Stretch(1.0))
-            .height(Pixels(260.0));
+            .class("chat-scroll");
         })
         .class("chat-transcript")
         .width(Stretch(1.0));
