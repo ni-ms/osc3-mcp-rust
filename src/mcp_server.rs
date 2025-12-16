@@ -2,10 +2,10 @@
 use crate::{FilterMode, Waveform};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{
-    handler::server::router::tool::ToolRouter, model::{ErrorData as McpError, *},
-    schemars,
-    tool,
-    tool_handler, tool_router, ServerHandler, ServiceExt,
+    ServerHandler, ServiceExt,
+    handler::server::router::tool::ToolRouter,
+    model::{ErrorData as McpError, *},
+    schemars, tool, tool_handler, tool_router,
 };
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;

@@ -872,7 +872,11 @@ impl Plugin for SineSynth {
     }
 
     fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        editor::create(self.params.clone(), self.params.editor_state.clone(), self.mcp_state.clone())
+        editor::create(
+            self.params.clone(),
+            self.params.editor_state.clone(),
+            self.mcp_state.clone(),
+        )
     }
 
     fn initialize(

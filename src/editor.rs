@@ -1,11 +1,11 @@
 use crate::knob::ParamKnob;
-use crate::{chat_ui, FilterMode, McpPluginState, SineParams, Waveform};
+use crate::{FilterMode, McpPluginState, SineParams, Waveform, chat_ui};
 use nih_plug::prelude::{Editor, EnumParam, Param};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use vizia_plug::vizia::prelude::*;
 use vizia_plug::widgets::*;
-use vizia_plug::{create_vizia_editor, ViziaState, ViziaTheming};
+use vizia_plug::{ViziaState, ViziaTheming, create_vizia_editor};
 
 use crate::tab_switcher::{TabDefinition, TabSwitcher};
 
