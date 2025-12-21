@@ -1,4 +1,4 @@
-// chat_ui.rs - Chat Interface for AI Integration
+// chat_ui.rs - FIXED Chat Interface for AI Integration
 use crate::mcp_server::PluginState;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -130,10 +130,10 @@ impl ChatState {
             messages: vec![ChatMessage {
                 role: Role::Assistant,
                 text: "Hi! I can help you control the synthesizer. Try commands like:\n\
-                       - \"show state\" - View all parameters\n\
-                       - \"set osc 1 waveform Sine\" - Change oscillator waveform\n\
-                       - \"set filter cutoff 1000\" - Adjust filter cutoff\n\
-                       - \"set envelope attack 0.5\" - Modify envelope"
+                       • \"show state\" - View all parameters\n\
+                       • \"set osc 1 waveform Sine\" - Change oscillator waveform\n\
+                       • \"set filter cutoff 1000\" - Adjust filter cutoff\n\
+                       • \"set envelope attack 0.5\" - Modify envelope"
                     .to_string(),
             }],
             input: String::new(),
@@ -169,7 +169,7 @@ impl Model for ChatState {
 
                 self.sending = true;
 
-                // Process command asynchronously
+                // Process command synchronously (no async needed for local commands)
                 let response = process_command(&trimmed);
                 _cx.emit(ChatEvent::Receive(response));
             }
@@ -267,7 +267,9 @@ pub fn chat_panel(cx: &mut Context, _mcp_state: Arc<RwLock<PluginState>>) -> Han
             Textbox::new(cx, ChatState::input)
                 .class("chat-input")
                 .width(Stretch(1.0))
-                .on_edit(|cx, text| cx.emit(ChatEvent::EditInput(text)))
+                .on_edit(|cx, text| {
+                    cx.emit(ChatEvent::EditInput(text));
+                })
                 .on_submit(|cx, _text, success| {
                     if success {
                         cx.emit(ChatEvent::Send);
@@ -277,7 +279,9 @@ pub fn chat_panel(cx: &mut Context, _mcp_state: Arc<RwLock<PluginState>>) -> Han
             Button::new(cx, |cx| Label::new(cx, "Send"))
                 .class("chat-send")
                 .cursor(CursorIcon::Hand)
-                .on_press(|cx| cx.emit(ChatEvent::Send));
+                .on_press(|cx| {
+                    cx.emit(ChatEvent::Send);
+                });
         })
         .class("chat-input-row")
         .width(Stretch(1.0));
@@ -286,7 +290,9 @@ pub fn chat_panel(cx: &mut Context, _mcp_state: Arc<RwLock<PluginState>>) -> Han
             Button::new(cx, |cx| Label::new(cx, "Clear"))
                 .class("chat-send")
                 .cursor(CursorIcon::Hand)
-                .on_press(|cx| cx.emit(ChatEvent::Clear));
+                .on_press(|cx| {
+                    cx.emit(ChatEvent::Clear);
+                });
 
             Button::new(cx, |cx| Label::new(cx, "Help"))
                 .class("chat-send")

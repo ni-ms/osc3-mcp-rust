@@ -171,7 +171,7 @@ impl TabSwitcher {
         })
     }
 
-    fn tab_button(cx: &mut Context, tab: TabDefinition, is_active: bool) -> Handle<impl View> {
+    fn tab_button(cx: &mut Context, tab: TabDefinition, is_active: bool) -> Handle<'_, impl View> {
         let tab_id_for_press = tab.id.clone();
         let width = tab.width.unwrap_or(120.0);
 

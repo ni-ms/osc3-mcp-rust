@@ -1,11 +1,11 @@
 use crate::knob::ParamKnob;
-use crate::{FilterMode, McpPluginState, SineParams, Waveform, chat_ui};
+use crate::{chat_ui, FilterMode, McpPluginState, SineParams, Waveform};
 use nih_plug::prelude::{Editor, EnumParam, Param};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use vizia_plug::vizia::prelude::*;
 use vizia_plug::widgets::*;
-use vizia_plug::{ViziaState, ViziaTheming, create_vizia_editor};
+use vizia_plug::{create_vizia_editor, ViziaState, ViziaTheming};
 
 use crate::tab_switcher::{TabDefinition, TabSwitcher};
 
@@ -794,7 +794,7 @@ pub(crate) fn create(
     mcp_state: Arc<RwLock<McpPluginState>>,
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
-        cx.add_stylesheet(UI_STYLESHEET);
+        cx.add_stylesheet(UI_STYLESHEET).expect("TODO: panic message");
 
         Data {
             params: params.clone(),
@@ -802,7 +802,6 @@ pub(crate) fn create(
         .build(cx);
 
         let mcp_state_for_tabs = mcp_state.clone();
-
         VStack::new(cx, |cx| {
             Label::new(cx, "ToneMorph").class("title");
 
@@ -949,11 +948,11 @@ pub(crate) fn create(
                             Element::new(cx).class("section-pip");
                             Label::new(cx, "AI").class("section-text");
                         })
-                            .class("section-title");
+                        .class("section-title");
 
-                        chat_ui::chat_panel(cx, mcp_state.clone());  
+                        chat_ui::chat_panel(cx, mcp_state_for_tabs.clone());
                     })
-                        .class("block-8");
+                    .class("block-8");
                 }
 
                 _ => {
