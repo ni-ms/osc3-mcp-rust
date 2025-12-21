@@ -949,23 +949,11 @@ pub(crate) fn create(
                             Element::new(cx).class("section-pip");
                             Label::new(cx, "AI").class("section-text");
                         })
-                        .class("section-title");
+                            .class("section-title");
 
-                        VStack::new(cx, |cx| {
-                            Label::new(cx, "AI Presets (Coming Soon)").class("text-muted");
-                            HStack::new(cx, |cx| {
-                                Button::new(cx, |cx| Label::new(cx, "Randomize Patch"))
-                                    .on_press(|_cx| { /* hook up later */ });
-                                Button::new(cx, |cx| Label::new(cx, "Suggest Envelope"))
-                                    .on_press(|_cx| { /* hook up later */ });
-                            })
-                            .class("block-8");
-                        })
-                        .class("panel");
+                        chat_ui::chat_panel(cx, mcp_state.clone());  
                     })
-                    .class("block-8");
-
-                    chat_ui::chat_panel(cx, mcp_state_for_tabs.clone());
+                        .class("block-8");
                 }
 
                 _ => {

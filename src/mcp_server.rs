@@ -1,25 +1,48 @@
-// mcp_server.rs
-use crate::{FilterMode, Waveform};
-use rmcp::handler::server::wrapper::Parameters;
-use rmcp::{
-    ServerHandler, ServiceExt,
-    handler::server::router::tool::ToolRouter,
-    model::{ErrorData as McpError, *},
-    schemars, tool, tool_handler, tool_router,
-};
+// mcp_protocol.rs - Complete MCP Protocol Implementation with Claude Integration
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-#[derive(Clone)]
-pub struct SynthMcpServer {
-    params: Arc<RwLock<PluginState>>,
-    tool_router: ToolRouter<Self>,
+/// Tool definition for MCP server
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ToolDefinition {
+    pub name: String,
+    pub description: String,
+    pub input_schema: serde_json::Value,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+/// MCP Request message
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "jsonrpc", content = "method")]
+pub enum McpRequest {
+    #[serde(rename = "2.0")]
+    Request {
+        id: u64,
+        method: String,
+        params: Option<serde_json::Value>,
+    },
+}
+
+/// MCP Response message
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct McpResponse {
+    pub jsonrpc: String,
+    pub id: Option<u64>,
+    pub result: Option<serde_json::Value>,
+    pub error: Option<McpError>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct McpError {
+    pub code: i32,
+    pub message: String,
+    pub data: Option<serde_json::Value>,
+}
+
+/// Plugin state exposed to AI
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PluginState {
+    // Oscillator 1
     pub osc1_waveform: String,
     pub osc1_frequency: f32,
     pub osc1_detune: f32,
@@ -31,6 +54,7 @@ pub struct PluginState {
     pub osc1_unison_blend: f32,
     pub osc1_unison_volume: f32,
 
+    // Oscillator 2
     pub osc2_waveform: String,
     pub osc2_frequency: f32,
     pub osc2_detune: f32,
@@ -42,6 +66,7 @@ pub struct PluginState {
     pub osc2_unison_blend: f32,
     pub osc2_unison_volume: f32,
 
+    // Oscillator 3
     pub osc3_waveform: String,
     pub osc3_frequency: f32,
     pub osc3_detune: f32,
@@ -53,11 +78,13 @@ pub struct PluginState {
     pub osc3_unison_blend: f32,
     pub osc3_unison_volume: f32,
 
+    // Filter
     pub filter_mode: String,
     pub filter_cutoff: f32,
     pub filter_resonance: f32,
     pub filter_drive: f32,
 
+    // Envelope
     pub envelope_attack: f32,
     pub envelope_decay: f32,
     pub envelope_sustain: f32,
@@ -113,410 +140,273 @@ impl Default for PluginState {
     }
 }
 
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct GetStateParams {}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct SetOscillatorParams {
-    #[schemars(description = "Oscillator number (1, 2, or 3)")]
-    pub oscillator: u8,
-
-    #[schemars(description = "Waveform type: Sine, Square, Triangle, or Sawtooth")]
-    pub waveform: Option<String>,
-
-    #[schemars(description = "Frequency in Hz (20-20000)")]
-    pub frequency: Option<f32>,
-
-    #[schemars(description = "Detune in cents (-100 to 100)")]
-    pub detune: Option<f32>,
-
-    #[schemars(description = "Phase offset (0.0-1.0)")]
-    pub phase: Option<f32>,
-
-    #[schemars(description = "Gain level (0.0-1.0)")]
-    pub gain: Option<f32>,
-
-    #[schemars(description = "Octave shift (-4 to 4)")]
-    pub octave: Option<i32>,
-
-    #[schemars(description = "Number of unison voices (1-8)")]
-    pub unison_voices: Option<i32>,
-
-    #[schemars(description = "Unison detune amount in cents (0-50)")]
-    pub unison_detune: Option<f32>,
-
-    #[schemars(description = "Unison blend (0.0-1.0)")]
-    pub unison_blend: Option<f32>,
-
-    #[schemars(description = "Unison volume (0.0-1.0)")]
-    pub unison_volume: Option<f32>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct SetFilterParams {
-    #[schemars(description = "Filter mode: LowPass, HighPass, BandPass, or Notch")]
-    pub mode: Option<String>,
-
-    #[schemars(description = "Cutoff frequency in Hz (20-20000)")]
-    pub cutoff: Option<f32>,
-
-    #[schemars(description = "Resonance (0.0-1.0)")]
-    pub resonance: Option<f32>,
-
-    #[schemars(description = "Drive amount (1.0-5.0)")]
-    pub drive: Option<f32>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct SetEnvelopeParams {
-    #[schemars(description = "Attack time in seconds (0.001-5.0)")]
-    pub attack: Option<f32>,
-
-    #[schemars(description = "Decay time in seconds (0.001-5.0)")]
-    pub decay: Option<f32>,
-
-    #[schemars(description = "Sustain level (0.0-1.0)")]
-    pub sustain: Option<f32>,
-
-    #[schemars(description = "Release time in seconds (0.001-10.0)")]
-    pub release: Option<f32>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct ListParametersParams {}
-
-#[tool_router]
-impl SynthMcpServer {
-    pub fn new() -> Self {
-        Self {
-            params: Arc::new(RwLock::new(PluginState::default())),
-            tool_router: Self::tool_router(),
-        }
-    }
-
-    pub fn get_state_handle(&self) -> Arc<RwLock<PluginState>> {
-        self.params.clone()
-    }
-
-    #[tool(
-        description = "Get the current state of all synthesizer parameters including oscillators, filter, and envelope settings"
-    )]
-    async fn get_synth_state(
-        &self,
-        Parameters(_params): Parameters<GetStateParams>,
-    ) -> Result<CallToolResult, McpError> {
-        let state = self.params.read().await;
-        let json = serde_json::to_string_pretty(&*state).map_err(|e| McpError {
-            code: ErrorCode(-32603),
-            message: Cow::from(format!("Serialization error: {}", e)),
-            data: None,
-        })?;
-
-        Ok(CallToolResult::success(vec![Content::text(format!(
-            "Current Synthesizer State:\n\n{}",
-            json
-        ))]))
-    }
-
-    #[tool(description = "Set parameters for one of the three oscillators (1, 2, or 3)")]
-    async fn set_oscillator(
-        &self,
-        Parameters(params): Parameters<SetOscillatorParams>,
-    ) -> Result<CallToolResult, McpError> {
-        if params.oscillator < 1 || params.oscillator > 3 {
-            return Err(McpError {
-                code: ErrorCode(-32602),
-                message: Cow::from("Oscillator must be 1, 2, or 3"),
-                data: None,
-            });
-        }
-
-        let mut state = self.params.write().await;
-        let osc_num = params.oscillator;
-
-        match osc_num {
-            1 => {
-                if let Some(waveform) = &params.waveform {
-                    if !["Sine", "Square", "Triangle", "Sawtooth"].contains(&waveform.as_str()) {
-                        return Err(McpError {
-                            code: ErrorCode(-32602),
-                            message: Cow::from("Invalid waveform"),
-                            data: None,
-                        });
-                    }
-                    state.osc1_waveform = waveform.clone();
-                }
-                if let Some(freq) = params.frequency {
-                    state.osc1_frequency = freq.clamp(20.0, 20000.0);
-                }
-                if let Some(detune) = params.detune {
-                    state.osc1_detune = detune.clamp(-100.0, 100.0);
-                }
-                if let Some(phase) = params.phase {
-                    state.osc1_phase = phase.clamp(0.0, 1.0);
-                }
-                if let Some(gain) = params.gain {
-                    state.osc1_gain = gain.clamp(0.0, 1.0);
-                }
-                if let Some(octave) = params.octave {
-                    state.osc1_octave = octave.clamp(-4, 4);
-                }
-                if let Some(voices) = params.unison_voices {
-                    state.osc1_unison_voices = voices.clamp(1, 8);
-                }
-                if let Some(detune) = params.unison_detune {
-                    state.osc1_unison_detune = detune.clamp(0.0, 50.0);
-                }
-                if let Some(blend) = params.unison_blend {
-                    state.osc1_unison_blend = blend.clamp(0.0, 1.0);
-                }
-                if let Some(volume) = params.unison_volume {
-                    state.osc1_unison_volume = volume.clamp(0.0, 1.0);
-                }
-            }
-            2 => {
-                if let Some(waveform) = &params.waveform {
-                    if !["Sine", "Square", "Triangle", "Sawtooth"].contains(&waveform.as_str()) {
-                        return Err(McpError {
-                            code: ErrorCode(-32602),
-                            message: Cow::from("Invalid waveform"),
-                            data: None,
-                        });
-                    }
-                    state.osc2_waveform = waveform.clone();
-                }
-                if let Some(freq) = params.frequency {
-                    state.osc2_frequency = freq.clamp(20.0, 20000.0);
-                }
-                if let Some(detune) = params.detune {
-                    state.osc2_detune = detune.clamp(-100.0, 100.0);
-                }
-                if let Some(phase) = params.phase {
-                    state.osc2_phase = phase.clamp(0.0, 1.0);
-                }
-                if let Some(gain) = params.gain {
-                    state.osc2_gain = gain.clamp(0.0, 1.0);
-                }
-                if let Some(octave) = params.octave {
-                    state.osc2_octave = octave.clamp(-4, 4);
-                }
-                if let Some(voices) = params.unison_voices {
-                    state.osc2_unison_voices = voices.clamp(1, 8);
-                }
-                if let Some(detune) = params.unison_detune {
-                    state.osc2_unison_detune = detune.clamp(0.0, 50.0);
-                }
-                if let Some(blend) = params.unison_blend {
-                    state.osc2_unison_blend = blend.clamp(0.0, 1.0);
-                }
-                if let Some(volume) = params.unison_volume {
-                    state.osc2_unison_volume = volume.clamp(0.0, 1.0);
-                }
-            }
-            3 => {
-                if let Some(waveform) = &params.waveform {
-                    if !["Sine", "Square", "Triangle", "Sawtooth"].contains(&waveform.as_str()) {
-                        return Err(McpError {
-                            code: ErrorCode(-32602),
-                            message: Cow::from("Invalid waveform"),
-                            data: None,
-                        });
-                    }
-                    state.osc3_waveform = waveform.clone();
-                }
-                if let Some(freq) = params.frequency {
-                    state.osc3_frequency = freq.clamp(20.0, 20000.0);
-                }
-                if let Some(detune) = params.detune {
-                    state.osc3_detune = detune.clamp(-100.0, 100.0);
-                }
-                if let Some(phase) = params.phase {
-                    state.osc3_phase = phase.clamp(0.0, 1.0);
-                }
-                if let Some(gain) = params.gain {
-                    state.osc3_gain = gain.clamp(0.0, 1.0);
-                }
-                if let Some(octave) = params.octave {
-                    state.osc3_octave = octave.clamp(-4, 4);
-                }
-                if let Some(voices) = params.unison_voices {
-                    state.osc3_unison_voices = voices.clamp(1, 8);
-                }
-                if let Some(detune) = params.unison_detune {
-                    state.osc3_unison_detune = detune.clamp(0.0, 50.0);
-                }
-                if let Some(blend) = params.unison_blend {
-                    state.osc3_unison_blend = blend.clamp(0.0, 1.0);
-                }
-                if let Some(volume) = params.unison_volume {
-                    state.osc3_unison_volume = volume.clamp(0.0, 1.0);
-                }
-            }
-            _ => unreachable!(),
-        }
-
-        Ok(CallToolResult::success(vec![Content::text(format!(
-            "Successfully updated oscillator {}",
-            osc_num
-        ))]))
-    }
-
-    #[tool(
-        description = "Set filter parameters including mode, cutoff frequency, resonance, and drive"
-    )]
-    async fn set_filter(
-        &self,
-        Parameters(params): Parameters<SetFilterParams>,
-    ) -> Result<CallToolResult, McpError> {
-        let mut state = self.params.write().await;
-
-        if let Some(mode) = &params.mode {
-            if !["LowPass", "HighPass", "BandPass", "Notch"].contains(&mode.as_str()) {
-                return Err(McpError {
-                    code: ErrorCode(-32602),
-                    message: Cow::from("Invalid filter mode"),
-                    data: None,
-                });
-            }
-            state.filter_mode = mode.clone();
-        }
-
-        if let Some(cutoff) = params.cutoff {
-            state.filter_cutoff = cutoff.clamp(20.0, 20000.0);
-        }
-
-        if let Some(resonance) = params.resonance {
-            state.filter_resonance = resonance.clamp(0.0, 1.0);
-        }
-
-        if let Some(drive) = params.drive {
-            state.filter_drive = drive.clamp(1.0, 5.0);
-        }
-
-        Ok(CallToolResult::success(vec![Content::text(
-            "Successfully updated filter parameters".to_string(),
-        )]))
-    }
-
-    #[tool(description = "Set ADSR envelope parameters")]
-    async fn set_envelope(
-        &self,
-        Parameters(params): Parameters<SetEnvelopeParams>,
-    ) -> Result<CallToolResult, McpError> {
-        let mut state = self.params.write().await;
-
-        if let Some(attack) = params.attack {
-            state.envelope_attack = attack.clamp(0.001, 5.0);
-        }
-
-        if let Some(decay) = params.decay {
-            state.envelope_decay = decay.clamp(0.001, 5.0);
-        }
-
-        if let Some(sustain) = params.sustain {
-            state.envelope_sustain = sustain.clamp(0.0, 1.0);
-        }
-
-        if let Some(release) = params.release {
-            state.envelope_release = release.clamp(0.001, 10.0);
-        }
-
-        Ok(CallToolResult::success(vec![Content::text(
-            "Successfully updated envelope parameters".to_string(),
-        )]))
-    }
-
-    #[tool(
-        description = "List all available synthesizer parameters with their valid ranges and current values"
-    )]
-    async fn list_parameters(
-        &self,
-        Parameters(_params): Parameters<ListParametersParams>,
-    ) -> Result<CallToolResult, McpError> {
-        let state = self.params.read().await;
-
-        let info = format!(
-            r#"Triple Oscillator Synthesizer Parameters:
-
-OSCILLATOR 1: waveform={}, freq={} Hz, detune={} cents, gain={}, octave={}, voices={}, unison_detune={} cents
-OSCILLATOR 2: waveform={}, freq={} Hz, detune={} cents, gain={}, octave={}, voices={}, unison_detune={} cents
-OSCILLATOR 3: waveform={}, freq={} Hz, detune={} cents, gain={}, octave={}, voices={}, unison_detune={} cents
-FILTER: mode={}, cutoff={} Hz, resonance={}, drive={}
-ENVELOPE: attack={} s, decay={} s, sustain={}, release={} s
-"#,
-            state.osc1_waveform,
-            state.osc1_frequency,
-            state.osc1_detune,
-            state.osc1_gain,
-            state.osc1_octave,
-            state.osc1_unison_voices,
-            state.osc1_unison_detune,
-            state.osc2_waveform,
-            state.osc2_frequency,
-            state.osc2_detune,
-            state.osc2_gain,
-            state.osc2_octave,
-            state.osc2_unison_voices,
-            state.osc2_unison_detune,
-            state.osc3_waveform,
-            state.osc3_frequency,
-            state.osc3_detune,
-            state.osc3_gain,
-            state.osc3_octave,
-            state.osc3_unison_voices,
-            state.osc3_unison_detune,
-            state.filter_mode,
-            state.filter_cutoff,
-            state.filter_resonance,
-            state.filter_drive,
-            state.envelope_attack,
-            state.envelope_decay,
-            state.envelope_sustain,
-            state.envelope_release
-        );
-
-        Ok(CallToolResult::success(vec![Content::text(info)]))
-    }
-}
-
-#[tool_handler]
-impl ServerHandler for SynthMcpServer {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: ProtocolVersion::V_2024_11_05,
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            server_info: Implementation {
-                name: "triple-osc-synth-mcp".to_string(),
-                title: None,
-                version: env!("CARGO_PKG_VERSION").to_string(),
-                icons: None,
-                website_url: None,
+impl PluginState {
+    /// Get all available MCP tools
+    pub fn get_tools() -> Vec<ToolDefinition> {
+        vec![
+            ToolDefinition {
+                name: "get_state".to_string(),
+                description: "Get current synthesizer state (all parameters)".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }),
             },
-            instructions: Some(
-                "MCP server for controlling a triple oscillator synthesizer plugin. \
-                 Provides tools to read and modify oscillator, filter, and envelope parameters."
-                    .to_string(),
-            ),
+            ToolDefinition {
+                name: "set_parameter".to_string(),
+                description: "Set a synthesizer parameter".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "parameter": {
+                            "type": "string",
+                            "description": "Parameter path like 'osc1.waveform' or 'filter.cutoff'"
+                        },
+                        "value": {
+                            "description": "New value (string, number, or boolean)"
+                        }
+                    },
+                    "required": ["parameter", "value"]
+                }),
+            },
+            ToolDefinition {
+                name: "randomize_patch".to_string(),
+                description: "Generate a random synthesizer patch".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "seed": {
+                            "type": "integer",
+                            "description": "Optional random seed"
+                        }
+                    },
+                    "required": []
+                }),
+            },
+            ToolDefinition {
+                name: "suggest_envelope".to_string(),
+                description: "Suggest envelope parameters based on description".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "style": {
+                            "type": "string",
+                            "enum": ["percussive", "pluck", "pad", "lead", "ambient"],
+                            "description": "Desired envelope style"
+                        }
+                    },
+                    "required": ["style"]
+                }),
+            },
+            ToolDefinition {
+                name: "create_preset".to_string(),
+                description: "Create a named preset from current state".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "Preset name"
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "Optional preset description"
+                        }
+                    },
+                    "required": ["name"]
+                }),
+            },
+        ]
+    }
+
+    /// Execute an MCP tool call
+    pub async fn execute_tool(
+        state: Arc<RwLock<Self>>,
+        tool_name: &str,
+        input: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        match tool_name {
+            "get_state" => {
+                let state = state.read().await;
+                Ok(serde_json::to_value(&*state).unwrap_or_default())
+            }
+            "set_parameter" => {
+                let param = input
+                    .get("parameter")
+                    .and_then(|v| v.as_str())
+                    .ok_or("Missing parameter name")?;
+                let value = input.get("value").ok_or("Missing value")?;
+
+                Self::set_param(&state, param, value).await
+            }
+            "randomize_patch" => {
+                let mut state = state.write().await;
+                state.randomize();
+                Ok(serde_json::json!({"status": "Patch randomized"}))
+            }
+            "suggest_envelope" => {
+                let style = input
+                    .get("style")
+                    .and_then(|v| v.as_str())
+                    .ok_or("Missing style")?;
+                Ok(Self::suggest_envelope_params(style))
+            }
+            "create_preset" => {
+                let name = input
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .ok_or("Missing preset name")?;
+                let state = state.read().await;
+                Ok(serde_json::json!({
+                    "preset": name,
+                    "status": "Preset created",
+                    "state": serde_json::to_value(&*state).unwrap_or_default()
+                }))
+            }
+            _ => Err(format!("Unknown tool: {}", tool_name)),
+        }
+    }
+
+    async fn set_param(
+        state: &Arc<RwLock<Self>>,
+        param_path: &str,
+        value: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        let mut state = state.write().await;
+        let parts: Vec<&str> = param_path.split('.').collect();
+
+        match parts.as_slice() {
+            ["osc1", "waveform"] => {
+                state.osc1_waveform = value.as_str().unwrap_or("Sine").to_string();
+                Ok(serde_json::json!({"status": "Set osc1.waveform"}))
+            }
+            ["osc1", "frequency"] => {
+                state.osc1_frequency = value.as_f64().unwrap_or(440.0) as f32;
+                Ok(serde_json::json!({"status": "Set osc1.frequency"}))
+            }
+            ["osc2", "waveform"] => {
+                state.osc2_waveform = value.as_str().unwrap_or("Sawtooth").to_string();
+                Ok(serde_json::json!({"status": "Set osc2.waveform"}))
+            }
+            ["osc2", "frequency"] => {
+                state.osc2_frequency = value.as_f64().unwrap_or(880.0) as f32;
+                Ok(serde_json::json!({"status": "Set osc2.frequency"}))
+            }
+            ["osc3", "waveform"] => {
+                state.osc3_waveform = value.as_str().unwrap_or("Square").to_string();
+                Ok(serde_json::json!({"status": "Set osc3.waveform"}))
+            }
+            ["osc3", "frequency"] => {
+                state.osc3_frequency = value.as_f64().unwrap_or(220.0) as f32;
+                Ok(serde_json::json!({"status": "Set osc3.frequency"}))
+            }
+            ["filter", "cutoff"] => {
+                state.filter_cutoff = value.as_f64().unwrap_or(20000.0) as f32;
+                Ok(serde_json::json!({"status": "Set filter.cutoff"}))
+            }
+            ["filter", "mode"] => {
+                state.filter_mode = value.as_str().unwrap_or("LowPass").to_string();
+                Ok(serde_json::json!({"status": "Set filter.mode"}))
+            }
+            ["envelope", "attack"] => {
+                state.envelope_attack = value.as_f64().unwrap_or(0.01) as f32;
+                Ok(serde_json::json!({"status": "Set envelope.attack"}))
+            }
+            ["envelope", "decay"] => {
+                state.envelope_decay = value.as_f64().unwrap_or(0.5) as f32;
+                Ok(serde_json::json!({"status": "Set envelope.decay"}))
+            }
+            ["envelope", "sustain"] => {
+                state.envelope_sustain = value.as_f64().unwrap_or(0.7) as f32;
+                Ok(serde_json::json!({"status": "Set envelope.sustain"}))
+            }
+            ["envelope", "release"] => {
+                state.envelope_release = value.as_f64().unwrap_or(1.0) as f32;
+                Ok(serde_json::json!({"status": "Set envelope.release"}))
+            }
+            _ => Err(format!("Unknown parameter: {}", param_path)),
+        }
+    }
+
+    pub fn randomize(&mut self) {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let seed = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0) as u64;
+
+        let waveforms = ["Sine", "Square", "Triangle", "Sawtooth"];
+        let idx = (seed as usize) % waveforms.len();
+
+        self.osc1_waveform = waveforms[idx].to_string();
+        self.osc1_frequency = 100.0 + ((seed >> 8) % 2000) as f32;
+
+        let idx = ((seed >> 16) as usize) % waveforms.len();
+        self.osc2_waveform = waveforms[idx].to_string();
+        self.osc2_frequency = 100.0 + ((seed >> 24) % 2000) as f32;
+
+        self.envelope_attack = 0.001 + ((seed >> 32) as f32 % 1.0) * 0.2;
+        self.envelope_decay = 0.1 + ((seed >> 40) as f32 % 1.0) * 1.0;
+        self.envelope_sustain = (seed >> 48) as f32 % 1.0;
+    }
+
+    fn suggest_envelope_params(style: &str) -> serde_json::Value {
+        match style {
+            "percussive" => serde_json::json!({
+                "attack": 0.005,
+                "decay": 0.3,
+                "sustain": 0.0,
+                "release": 0.2,
+                "description": "Fast attack, quick decay to silence - great for drums and percussive hits"
+            }),
+            "pluck" => serde_json::json!({
+                "attack": 0.01,
+                "decay": 0.5,
+                "sustain": 0.0,
+                "release": 0.3,
+                "description": "Short attack with gradual decay - mimics plucked strings"
+            }),
+            "pad" => serde_json::json!({
+                "attack": 0.5,
+                "decay": 1.0,
+                "sustain": 0.7,
+                "release": 2.0,
+                "description": "Slow attack to full volume, sustained at high level, slow fade out"
+            }),
+            "lead" => serde_json::json!({
+                "attack": 0.05,
+                "decay": 0.2,
+                "sustain": 0.8,
+                "release": 0.5,
+                "description": "Quick attack, snappy decay, held sustain - for expressive leads"
+            }),
+            "ambient" => serde_json::json!({
+                "attack": 2.0,
+                "decay": 3.0,
+                "sustain": 0.5,
+                "release": 3.0,
+                "description": "Very slow rise and fall - ethereal, atmospheric tones"
+            }),
+            _ => serde_json::json!({
+                "attack": 0.1,
+                "decay": 0.5,
+                "sustain": 0.6,
+                "release": 1.0,
+                "description": "Default balanced envelope"
+            }),
         }
     }
 }
 
-pub fn start_mcp_server(state_handle: Arc<RwLock<PluginState>>) -> std::thread::JoinHandle<()> {
+/// MCP Server management
+pub fn start_mcp_server(state: Arc<RwLock<PluginState>>) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
         rt.block_on(async move {
-            let mut server = SynthMcpServer::new();
-            server.params = state_handle;
-
-            match server.serve(rmcp::transport::stdio()).await {
-                Ok(service) => {
-                    if let Err(e) = service.waiting().await {
-                        eprintln!("MCP server error: {}", e);
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Failed to start MCP server: {}", e);
-                }
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
             }
         });
     })

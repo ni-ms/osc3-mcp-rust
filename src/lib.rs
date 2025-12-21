@@ -14,6 +14,8 @@ mod knob;
 mod mcp_server;
 mod tab_switcher;
 
+
+
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FilterMode {
     #[id = "lowpass"]
