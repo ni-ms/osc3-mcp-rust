@@ -8,9 +8,11 @@ mod ai;
 mod dsp;
 mod editor;
 mod knob;
+mod meter;
 mod params;
 mod tab_switcher;
 
+pub use meter::PeakMeter;
 pub use params::{AdsrParams, FilterMode, FilterParams, OscillatorParams, SineParams, Waveform};
 
 use dsp::{FrameParams, Voice};
@@ -18,10 +20,17 @@ use dsp::{FrameParams, Voice};
 /// Number of polyphonic voices in the pool.
 const NUM_VOICES: usize = 16;
 
+/// Per-block decay applied to the published output peak so the meter falls back
+/// smoothly between transients (~0.85 ≈ a natural VU-style release at audio
+/// block rates).
+const METER_DECAY: f32 = 0.85;
+
 pub struct SineSynth {
     params: Arc<SineParams>,
     sample_rate: f32,
     voices: Vec<Voice>,
+    /// Output level published to the GUI meter. Lock-free; written once per block.
+    peak_meter: Arc<PeakMeter>,
 }
 
 impl Default for SineSynth {
@@ -36,6 +45,7 @@ impl Default for SineSynth {
             params: Arc::new(SineParams::default()),
             sample_rate,
             voices,
+            peak_meter: Arc::new(PeakMeter::new()),
         }
     }
 }
@@ -105,7 +115,11 @@ impl Plugin for SineSynth {
     }
 
     fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        editor::create(self.params.clone(), self.params.editor_state.clone())
+        editor::create(
+            self.params.clone(),
+            self.peak_meter.clone(),
+            self.params.editor_state.clone(),
+        )
     }
 
     fn initialize(
@@ -139,6 +153,8 @@ impl Plugin for SineSynth {
 
         self.sync_unison_voice_counts();
 
+        let mut block_peak = 0.0f32;
+
         for channel_samples in buffer.iter_samples() {
             // Advance every smoother exactly once for this sample, then share
             // the snapshot across all voices.
@@ -150,11 +166,17 @@ impl Plugin for SineSynth {
             }
 
             sample = sample.tanh() * 0.5;
+            block_peak = block_peak.max(sample.abs());
 
             for output_sample in channel_samples {
                 *output_sample = sample;
             }
         }
+
+        // Publish the block peak to the GUI meter, decaying the previous value
+        // so the bar releases smoothly. One relaxed load + store — RT-safe.
+        let released = self.peak_meter.load() * METER_DECAY;
+        self.peak_meter.store(block_peak.max(released));
 
         ProcessStatus::Normal
     }
