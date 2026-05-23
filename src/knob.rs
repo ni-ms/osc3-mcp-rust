@@ -2,7 +2,7 @@ use nih_plug::prelude::Param;
 use vizia_plug::vizia::prelude::*;
 use vizia_plug::widgets::param_base::ParamWidgetBase;
 
-const KNOB_CSS: &str = r#"
+pub const KNOB_CSS: &str = r#"
 
 .param-knob { margin: 3px; cursor: pointer; }
 .param-knob:hover { filter: brightness(1.08); }
@@ -30,8 +30,6 @@ impl ParamKnob {
         P: Param + 'static,
         FMap: Fn(&Params) -> &P + Copy + 'static,
     {
-        cx.add_stylesheet(KNOB_CSS).ok();
-
         Self {
             param_base: ParamWidgetBase::new(cx, params.clone(), params_to_param),
             drag_active: false,

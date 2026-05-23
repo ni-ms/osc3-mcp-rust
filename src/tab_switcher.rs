@@ -1,6 +1,6 @@
 use vizia_plug::vizia::prelude::*;
 
-const TABSWITCHER_THEME: &str = r#"
+pub const TABSWITCHER_THEME: &str = r#"
 .tabbar {
   background-color: #18181E;
   border-bottom: 1px solid #334155;
@@ -118,8 +118,6 @@ impl TabSwitcher {
     where
         F: 'static + Fn(&mut Context, &str, usize),
     {
-        cx.add_stylesheet(TABSWITCHER_THEME);
-
         TabSwitcherData::new(tabs).build(cx);
 
         VStack::new(cx, |cx| {

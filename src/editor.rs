@@ -1,5 +1,5 @@
 use crate::knob::ParamKnob;
-use crate::{chat_ui, FilterMode, McpPluginState, SineParams, Waveform};
+use crate::{FilterMode, McpPluginState, OscillatorParams, SineParams, Waveform};
 use nih_plug::prelude::{Editor, EnumParam, Param};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -386,20 +386,14 @@ fn param_knob_block<L>(
     .class("knob-stack");
 }
 
+/// Builds one oscillator module card. `osc` selects which of the three
+/// oscillator param groups this section drives; every knob is derived from it,
+/// so the three call sites differ only by selector and accent colour.
 fn create_osc_section(
     cx: &mut Context,
     title: &str,
     accent: Color,
-    wf: impl Fn(&SineParams) -> &EnumParam<Waveform> + Copy + Send + Sync + 'static,
-    f: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
-    g: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
-    p: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
-    d: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
-    oct: impl Fn(&SineParams) -> &nih_plug::prelude::IntParam + Copy + Send + Sync + 'static,
-    uv: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::IntParam + Copy + Send + Sync + 'static,
-    ud: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
-    ub: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
-    ul: impl Fn(&Arc<SineParams>) -> &nih_plug::prelude::FloatParam + Copy + Send + Sync + 'static,
+    osc: impl Fn(&SineParams) -> &OscillatorParams + Copy + Send + Sync + 'static,
 ) {
     VStack::new(cx, |cx| {
         HStack::new(cx, |cx| {
@@ -424,14 +418,14 @@ fn create_osc_section(
                 HStack::new(cx, |cx| {
                     VStack::new(cx, |cx| {
                         Label::new(cx, "SHAPE").class("knob-label");
-                        waveform_dropdown(cx, Data::params, wf);
+                        waveform_dropdown(cx, Data::params, move |p| &osc(p).waveform);
                     })
                     .class("knob-stack");
-                    octave_counter(cx, Data::params, oct);
-                    param_knob_block(cx, "Freq", Data::params, f);
-                    param_knob_block(cx, "Detune", Data::params, d);
-                    param_knob_block(cx, "Phase", Data::params, p);
-                    param_knob_block(cx, "Level", Data::params, g);
+                    octave_counter(cx, Data::params, move |p| &osc(p).octave);
+                    param_knob_block(cx, "Freq", Data::params, move |p| &osc(p).frequency);
+                    param_knob_block(cx, "Detune", Data::params, move |p| &osc(p).detune);
+                    param_knob_block(cx, "Phase", Data::params, move |p| &osc(p).phase);
+                    param_knob_block(cx, "Level", Data::params, move |p| &osc(p).gain);
                 })
                 .class("gap-16")
                 .alignment(Alignment::Center);
@@ -440,12 +434,13 @@ fn create_osc_section(
                 HStack::new(cx, |cx| {
                     VStack::new(cx, |cx| {
                         Label::new(cx, "VOICES").class("knob-label");
-                        ParamKnob::new(cx, Data::params, uv).size(Pixels(40.0));
+                        ParamKnob::new(cx, Data::params, move |p| &osc(p).unison_voices)
+                            .size(Pixels(40.0));
                     })
                     .class("knob-stack");
-                    param_knob_block(cx, "Detune", Data::params, ud);
-                    param_knob_block(cx, "Blend", Data::params, ub);
-                    param_knob_block(cx, "Gain", Data::params, ul);
+                    param_knob_block(cx, "Detune", Data::params, move |p| &osc(p).unison_detune);
+                    param_knob_block(cx, "Blend", Data::params, move |p| &osc(p).unison_blend);
+                    param_knob_block(cx, "Gain", Data::params, move |p| &osc(p).unison_volume);
                 })
                 .class("gap-16")
                 .alignment(Alignment::Center);
@@ -460,11 +455,16 @@ fn create_osc_section(
 pub(crate) fn create(
     params: Arc<SineParams>,
     editor_state: Arc<ViziaState>,
-    mcp_state: Arc<RwLock<McpPluginState>>,
+    // Reserved for the (currently inert) AI assist panel; see `crate::ai`.
+    _mcp_state: Arc<RwLock<McpPluginState>>,
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
+        // Register every stylesheet once here rather than per-widget-construction.
         cx.add_stylesheet(UI_STYLESHEET)
             .expect("Failed to load styles");
+        cx.add_stylesheet(crate::knob::KNOB_CSS).ok();
+        cx.add_stylesheet(crate::tab_switcher::TABSWITCHER_THEME).ok();
+
         Data {
             params: params.clone(),
         }
@@ -487,9 +487,6 @@ pub(crate) fn create(
                 TabDefinition::new("ai", "AI ASSIST"),
             ];
 
-            // CRITICAL FIX: Clone mcp_state into a local variable before moving into the closure
-            let mcp_state_local = mcp_state.clone();
-
             TabSwitcher::new(cx, main_tabs, move |cx, tab_id, _| {
                 VStack::new(cx, |cx| match tab_id {
                     "oscillators" => {
@@ -498,46 +495,19 @@ pub(crate) fn create(
                                 cx,
                                 "Oscillator 1",
                                 ColorPalette::OSC1_ACCENT,
-                                |p| &p.waveform1,
-                                |p| &p.frequency1,
-                                |p| &p.gain1,
-                                |p| &p.phase1,
-                                |p| &p.detune1,
-                                |p| &p.octave1,
-                                |p| &p.unison_voices1,
-                                |p| &p.unison_detune1,
-                                |p| &p.unison_blend1,
-                                |p| &p.unison_volume1,
+                                |p| &p.osc1,
                             );
                             create_osc_section(
                                 cx,
                                 "Oscillator 2",
                                 ColorPalette::OSC2_ACCENT,
-                                |p| &p.waveform2,
-                                |p| &p.frequency2,
-                                |p| &p.gain2,
-                                |p| &p.phase2,
-                                |p| &p.detune2,
-                                |p| &p.octave2,
-                                |p| &p.unison_voices2,
-                                |p| &p.unison_detune2,
-                                |p| &p.unison_blend2,
-                                |p| &p.unison_volume2,
+                                |p| &p.osc2,
                             );
                             create_osc_section(
                                 cx,
                                 "Oscillator 3",
                                 ColorPalette::OSC3_ACCENT,
-                                |p| &p.waveform3,
-                                |p| &p.frequency3,
-                                |p| &p.gain3,
-                                |p| &p.phase3,
-                                |p| &p.detune3,
-                                |p| &p.octave3,
-                                |p| &p.unison_voices3,
-                                |p| &p.unison_detune3,
-                                |p| &p.unison_blend3,
-                                |p| &p.unison_volume3,
+                                |p| &p.osc3,
                             );
                         });
                     }
@@ -559,17 +529,17 @@ pub(crate) fn create(
                                 HStack::new(cx, |cx| {
                                     VStack::new(cx, |cx| {
                                         Label::new(cx, "MODE").class("knob-label");
-                                        filter_mode_dropdown(cx, Data::params, |p| &p.filter_mode);
+                                        filter_mode_dropdown(cx, Data::params, |p| &p.filter.mode);
                                     })
                                     .class("knob-stack");
                                     param_knob_block(cx, "Cutoff", Data::params, |p| {
-                                        &p.filter_cutoff
+                                        &p.filter.cutoff
                                     });
                                     param_knob_block(cx, "Res", Data::params, |p| {
-                                        &p.filter_resonance
+                                        &p.filter.resonance
                                     });
                                     param_knob_block(cx, "Drive", Data::params, |p| {
-                                        &p.filter_drive
+                                        &p.filter.drive
                                     });
                                 })
                                 .class("gap-16")
@@ -590,17 +560,18 @@ pub(crate) fn create(
                         VStack::new(cx, |cx| {
                             Label::new(cx, "AMPLITUDE ENVELOPE").class("module-title");
                             HStack::new(cx, |cx| {
-                                param_knob_block(cx, "Attack", Data::params, |p| &p.attack);
-                                param_knob_block(cx, "Decay", Data::params, |p| &p.decay);
-                                param_knob_block(cx, "Sustain", Data::params, |p| &p.sustain);
-                                param_knob_block(cx, "Release", Data::params, |p| &p.release);
+                                param_knob_block(cx, "Attack", Data::params, |p| &p.adsr.attack);
+                                param_knob_block(cx, "Decay", Data::params, |p| &p.adsr.decay);
+                                param_knob_block(cx, "Sustain", Data::params, |p| &p.adsr.sustain);
+                                param_knob_block(cx, "Release", Data::params, |p| &p.adsr.release);
                             })
                             .class("gap-16");
                         })
                         .class("module-card");
                     }
                     "ai" => {
-                        // chat_ui::chat_panel(cx, mcp_state_local.clone());
+                        // AI assist panel is not wired up yet; see `crate::ai`.
+                        // crate::ai::chat_ui::chat_panel(cx, _mcp_state.clone());
                     }
                     _ => {}
                 })

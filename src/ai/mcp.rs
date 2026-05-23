@@ -56,7 +56,12 @@ pub struct McpError {
     pub data: Option<serde_json::Value>,
 }
 
-/// COMPLETE Plugin state - Exhaustive 1:1 Mirror of SineParams in lib.rs
+/// Snapshot of synth state used by the (currently inert) AI tools.
+///
+/// NOTE: this is a standalone copy of the parameter values, **not** a live view
+/// of [`crate::SineParams`]. Nothing synchronises the two today. When the AI
+/// feature is wired up, this should be replaced by reads/writes against the real
+/// parameters rather than a hand-maintained mirror. See `ARCHITECTURE_REVIEW.md`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PluginState {
     // --- AI Config ---
