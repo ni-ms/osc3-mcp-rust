@@ -6,14 +6,11 @@ use std::sync::Arc;
 
 mod ai;
 mod dsp;
-mod editor;
-mod knob;
-mod meter;
 mod params;
-mod tab_switcher;
+mod ui;
 
-pub use meter::PeakMeter;
 pub use params::{AdsrParams, FilterMode, FilterParams, OscillatorParams, SineParams, Waveform};
+pub use ui::PeakMeter;
 
 use dsp::{FrameParams, Voice};
 
@@ -115,7 +112,7 @@ impl Plugin for SineSynth {
     }
 
     fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        editor::create(
+        ui::editor::create(
             self.params.clone(),
             self.peak_meter.clone(),
             self.params.editor_state.clone(),

@@ -295,7 +295,7 @@ pub struct SineParams {
 impl Default for SineParams {
     fn default() -> Self {
         Self {
-            editor_state: crate::editor::default_state(),
+            editor_state: crate::ui::editor::default_state(),
 
             osc1: OscillatorParams::new(Waveform::Sine, 440.0, -6.0, 0),
             osc2: OscillatorParams::new(Waveform::Sawtooth, 880.0, -12.0, -1),

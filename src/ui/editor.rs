@@ -1,5 +1,4 @@
-use crate::knob::ParamKnob;
-use crate::meter::{Meter, PeakMeter};
+use super::{Meter, ParamKnob, PeakMeter, TabDefinition, TabSwitcher};
 use crate::{FilterMode, OscillatorParams, SineParams, Waveform};
 use nih_plug::prelude::{Editor, EnumParam, Param};
 use std::sync::Arc;
@@ -7,8 +6,6 @@ use vizia_plug::vizia::prelude::*;
 use vizia_plug::widgets::param_base::ParamWidgetBase;
 use vizia_plug::widgets::*;
 use vizia_plug::{create_vizia_editor, ViziaState, ViziaTheming};
-
-use crate::tab_switcher::{TabDefinition, TabSwitcher};
 
 // --- MODERN COLOR PALETTE ---
 struct ColorPalette;
@@ -526,9 +523,9 @@ pub(crate) fn create(
         // Register every stylesheet once here rather than per-widget-construction.
         cx.add_stylesheet(UI_STYLESHEET)
             .expect("Failed to load styles");
-        cx.add_stylesheet(crate::knob::KNOB_CSS).ok();
-        cx.add_stylesheet(crate::meter::METER_CSS).ok();
-        cx.add_stylesheet(crate::tab_switcher::TABSWITCHER_THEME).ok();
+        cx.add_stylesheet(super::knob::KNOB_CSS).ok();
+        cx.add_stylesheet(super::meter::METER_CSS).ok();
+        cx.add_stylesheet(super::tab_switcher::TABSWITCHER_THEME).ok();
         cx.add_stylesheet(crate::ai::chat_ui::CHAT_STYLES).ok();
 
         Data {
