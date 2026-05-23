@@ -23,7 +23,8 @@ crossbeam-channel = "0.5"
 tracing = "0.1.41"
 base64 = "0.22.1"
 rfd = "0.16.0"
-reqwest = { version = "0.13.0-rc.1", default-features = false, features = ["json"] }
+reqwest = { version = "0.13.0-rc.1", default-features = false, features = ["json", "native-tls"] }
+dirs = "5"
 
 [lib]
 crate-type = ["cdylib", "lib"]

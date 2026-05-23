@@ -3,7 +3,6 @@ use nih_plug::prelude::*;
 
 use std::num::NonZeroU32;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 mod ai;
 mod dsp;
@@ -19,17 +18,10 @@ use dsp::{FrameParams, Voice};
 /// Number of polyphonic voices in the pool.
 const NUM_VOICES: usize = 16;
 
-pub type McpPluginState = ai::mcp::PluginState;
-
-const ENABLE_MCP_SERVER: bool = true;
-
 pub struct SineSynth {
     params: Arc<SineParams>,
     sample_rate: f32,
     voices: Vec<Voice>,
-
-    mcp_state: Arc<RwLock<McpPluginState>>,
-    _mcp_thread: Option<std::thread::JoinHandle<()>>,
 }
 
 impl Default for SineSynth {
@@ -40,20 +32,10 @@ impl Default for SineSynth {
             voices.push(Voice::new(sample_rate));
         }
 
-        let mcp_state = Arc::new(RwLock::new(McpPluginState::default()));
-
-        let mcp_thread = if ENABLE_MCP_SERVER {
-            Some(ai::mcp::start_mcp_server(mcp_state.clone()))
-        } else {
-            None
-        };
-
         Self {
             params: Arc::new(SineParams::default()),
             sample_rate,
             voices,
-            mcp_state,
-            _mcp_thread: mcp_thread,
         }
     }
 }
@@ -123,11 +105,7 @@ impl Plugin for SineSynth {
     }
 
     fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        editor::create(
-            self.params.clone(),
-            self.params.editor_state.clone(),
-            self.mcp_state.clone(),
-        )
+        editor::create(self.params.clone(), self.params.editor_state.clone())
     }
 
     fn initialize(

@@ -1,8 +1,7 @@
 use crate::knob::ParamKnob;
-use crate::{FilterMode, McpPluginState, OscillatorParams, SineParams, Waveform};
+use crate::{FilterMode, OscillatorParams, SineParams, Waveform};
 use nih_plug::prelude::{Editor, EnumParam, Param};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use vizia_plug::vizia::prelude::*;
 use vizia_plug::widgets::*;
 use vizia_plug::{create_vizia_editor, ViziaState, ViziaTheming};
@@ -455,8 +454,6 @@ fn create_osc_section(
 pub(crate) fn create(
     params: Arc<SineParams>,
     editor_state: Arc<ViziaState>,
-    // Reserved for the (currently inert) AI assist panel; see `crate::ai`.
-    _mcp_state: Arc<RwLock<McpPluginState>>,
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
         // Register every stylesheet once here rather than per-widget-construction.
@@ -464,6 +461,7 @@ pub(crate) fn create(
             .expect("Failed to load styles");
         cx.add_stylesheet(crate::knob::KNOB_CSS).ok();
         cx.add_stylesheet(crate::tab_switcher::TABSWITCHER_THEME).ok();
+        cx.add_stylesheet(crate::ai::chat_ui::CHAT_STYLES).ok();
 
         Data {
             params: params.clone(),
@@ -486,6 +484,9 @@ pub(crate) fn create(
                 TabDefinition::new("filters_fx", "FILTER & FX"),
                 TabDefinition::new("ai", "AI ASSIST"),
             ];
+
+            // The AI tab's tools drive the live parameters directly.
+            let ai_params = params.clone();
 
             TabSwitcher::new(cx, main_tabs, move |cx, tab_id, _| {
                 VStack::new(cx, |cx| match tab_id {
@@ -570,8 +571,7 @@ pub(crate) fn create(
                         .class("module-card");
                     }
                     "ai" => {
-                        // AI assist panel is not wired up yet; see `crate::ai`.
-                        // crate::ai::chat_ui::chat_panel(cx, _mcp_state.clone());
+                        crate::ai::chat_ui::chat_panel(cx, ai_params.clone());
                     }
                     _ => {}
                 })

@@ -1,13 +1,14 @@
-//! AI assistant layer (Gemini via MCP-style tool calls).
+//! AI assistant layer: an in-plugin chat panel that drives the synth through
+//! the Gemini tool-calling API and reads/writes JSON presets on disk.
 //!
-//! **This feature is currently inert.** [`chat_ui`] is not wired into the
-//! editor, and [`mcp::start_mcp_server`] only spawns an idle thread. The
-//! [`mcp::PluginState`] struct holds its own copy of the parameter values and
-//! is **not** connected to the live audio parameters — changing it does not
-//! affect the sound. Before enabling this, route AI parameter writes through the
-//! real [`crate::SineParams`] (e.g. a lock-free command queue drained in
-//! `process`, or `nih_plug`'s `BackgroundTask`/`AsyncExecutor`). See
-//! `ARCHITECTURE_REVIEW.md`.
+//! - [`chat_ui`] — the "AI ASSIST" tab (Vizia model + view).
+//! - [`llm`] — Gemini config + the multi-turn tool-calling loop.
+//! - [`tools`] — tool schemas + the in-plugin dispatcher.
+//! - [`bridge`] — maps tool calls to real `nih_plug` parameter writes.
+//! - [`preset`] — parameter snapshot capture/apply + JSON file storage.
 
+pub mod bridge;
 pub mod chat_ui;
-pub mod mcp;
+pub mod llm;
+pub mod preset;
+pub mod tools;
