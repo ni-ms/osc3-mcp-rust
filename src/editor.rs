@@ -600,7 +600,7 @@ pub(crate) fn create(
                         .class("module-card");
                     }
                     "ai" => {
-                        chat_ui::chat_panel(cx, mcp_state_local.clone());
+                        // chat_ui::chat_panel(cx, mcp_state_local.clone());
                     }
                     _ => {}
                 })
