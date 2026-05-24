@@ -43,6 +43,11 @@ pub struct ParamKnob {
     hovered: bool,
     drag_active: bool,
     drag_start_y: f32,
+    /// Running normalized value for the active drag. `set_normalized_value` only
+    /// *emits* a deferred `RawParamEvent`, so reading the param back on the next
+    /// `MouseMove` can see a stale value when baseview batches several moves into
+    /// one event pass. We accumulate locally instead and never read back mid-drag.
+    drag_value: f32,
     scrolled_lines: f32,
 }
 
@@ -65,6 +70,7 @@ impl ParamKnob {
             hovered: false,
             drag_active: false,
             drag_start_y: 0.0,
+            drag_value: 0.0,
             scrolled_lines: 0.0,
         }
         .build(cx, |_| {})
@@ -201,6 +207,9 @@ impl View for ParamKnob {
                 cx.set_active(true);
                 self.drag_start_y = cx.mouse().cursor_y;
                 self.drag_active = true;
+                // Snapshot the value once; the drag accumulates onto this locally
+                // so it never depends on the deferred param write being applied.
+                self.drag_value = self.param_base.unmodulated_normalized_value();
                 self.param_base.begin_set_parameter(cx);
                 meta.consume();
             }
@@ -208,10 +217,9 @@ impl View for ParamKnob {
                 let drag_delta = self.drag_start_y - y;
                 // Finer control while holding Shift.
                 let sensitivity = if cx.modifiers().shift() { 0.0008 } else { 0.005 };
-                let current_value = self.param_base.unmodulated_normalized_value();
-                let new_value = (current_value + drag_delta * sensitivity).clamp(0.0, 1.0);
+                self.drag_value = (self.drag_value + drag_delta * sensitivity).clamp(0.0, 1.0);
                 self.drag_start_y = *y;
-                self.param_base.set_normalized_value(cx, new_value);
+                self.param_base.set_normalized_value(cx, self.drag_value);
                 meta.consume();
             }
             WindowEvent::MouseUp(MouseButton::Left) if self.drag_active => {

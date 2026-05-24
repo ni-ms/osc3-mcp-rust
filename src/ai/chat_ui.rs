@@ -8,15 +8,18 @@ use vizia_plug::vizia::prelude::*;
 
 use super::llm::{AiConfig, AiModel};
 
+// NOTE: this `vizia_style` revision silently drops legacy spacing names like
+// `row-between`/`col-between`/`border-radius` (see editor.rs). Use `gap` for
+// stack spacing and `corner-radius` for rounded corners, or layout collapses.
 pub const CHAT_STYLES: &str = r#"
     .chat-root {
         padding: 12px;
-        row-between: 8px;
+        gap: 8px;
         background-color: #0A0A0C;
     }
     .chat-header {
         height: 24px;
-        col-between: 8px;
+        gap: 8px;
         alignment: center;
     }
     .chat-title {
@@ -30,7 +33,7 @@ pub const CHAT_STYLES: &str = r#"
         height: 24px;
         background-color: #1C1C22;
         border: 1px solid #2D2D34;
-        border-radius: 4px;
+        corner-radius: 4px;
         color: #94A3B8;
         alignment: center;
     }
@@ -39,10 +42,10 @@ pub const CHAT_STYLES: &str = r#"
         height: 1s;
         background-color: #121216;
         border: 1px solid #2D2D34;
-        border-radius: 6px;
+        corner-radius: 6px;
         padding: 8px;
     }
-    .chat-msg { row-between: 2px; padding-bottom: 8px; }
+    .chat-msg { gap: 2px; padding-bottom: 8px; }
     .chat-role {
         font-size: 9px;
         font-weight: 700;
@@ -59,11 +62,11 @@ pub const CHAT_STYLES: &str = r#"
         font-size: 10px;
         height: 12px;
     }
-    .chat-inputrow { height: 28px; col-between: 6px; }
+    .chat-inputrow { height: 28px; gap: 6px; }
     .chat-input {
         background-color: #0F1115;
         border: 1px solid #2D2D34;
-        border-radius: 4px;
+        corner-radius: 4px;
         color: #F8FAFC;
         font-size: 11px;
         height: 28px;
@@ -73,7 +76,7 @@ pub const CHAT_STYLES: &str = r#"
     .chat-send {
         height: 28px;
         background-color: #6366F1;
-        border-radius: 4px;
+        corner-radius: 4px;
         color: #F8FAFC;
         font-size: 11px;
         padding-left: 12px;
@@ -90,15 +93,15 @@ pub const CHAT_STYLES: &str = r#"
         top: 0px;
         background-color: #0A0A0CF2;
         padding: 16px;
-        row-between: 8px;
+        gap: 8px;
     }
     .settings-label { color: #F8FAFC; font-size: 12px; font-weight: 700; }
     .settings-sublabel { color: #94A3B8; font-size: 10px; font-weight: 600; }
-    .settings-models { col-between: 6px; height: 26px; }
+    .settings-models { gap: 6px; height: 26px; }
     .model-btn {
         background-color: #1C1C22;
         border: 1px solid #2D2D34;
-        border-radius: 4px;
+        corner-radius: 4px;
         color: #94A3B8;
         font-size: 10px;
         padding-left: 10px;
@@ -176,7 +179,8 @@ impl Model for ChatState {
             ChatEvent::ToggleSettings => self.is_settings_open = !self.is_settings_open,
 
             ChatEvent::SetApiKey(k) => {
-                self.api_key = k.clone();
+                // Trim pasted whitespace/newlines so the saved key is usable as-is.
+                self.api_key = k.trim().to_string();
                 self.persist();
             }
 

@@ -1,0 +1,5 @@
+{
+  "api_key": "PASTE_YOUR_GEMINI_KEY_HERE",
+  "model": "Gemini25Flash",
+  "temperature": 0.7
+}

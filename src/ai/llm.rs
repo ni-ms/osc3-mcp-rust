@@ -61,12 +61,19 @@ impl AiConfig {
         preset::app_dir().join("config.json")
     }
 
-    /// Load config, returning defaults if the file is missing or unreadable.
+    /// Load config. If the file is missing, write out a default one so users
+    /// have a documented file to edit (e.g. to paste a key without the GUI). A
+    /// present-but-unparseable file is left untouched and defaults are used, so
+    /// a hand-edit with a typo isn't silently clobbered.
     pub fn load() -> Self {
-        std::fs::read_to_string(Self::path())
-            .ok()
-            .and_then(|t| serde_json::from_str(&t).ok())
-            .unwrap_or_default()
+        match std::fs::read_to_string(Self::path()) {
+            Ok(text) => serde_json::from_str(&text).unwrap_or_default(),
+            Err(_) => {
+                let cfg = Self::default();
+                let _ = cfg.save();
+                cfg
+            }
+        }
     }
 
     pub fn save(&self) -> Result<(), String> {
@@ -105,10 +112,12 @@ pub async fn run_conversation(
     cfg: &AiConfig,
     convo: Vec<(Role, String)>,
 ) {
+    // Keys copied from AI Studio often carry a trailing newline or surrounding
+    // whitespace; left in the URL that yields an opaque API error, so trim it.
     let url = format!(
         "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
         cfg.model.api_name(),
-        cfg.api_key
+        cfg.api_key.trim()
     );
 
     // Seed the conversation with the visible chat history (skip tool log lines).
@@ -140,7 +149,18 @@ pub async fn run_conversation(
             let code = resp.status();
             let detail = resp.text().await.unwrap_or_default();
             let detail = detail.chars().take(300).collect::<String>();
-            let _ = proxy.emit(ChatEvent::Receive(format!("API error {code}: {detail}")));
+            // 429 is a rate-limit/quota response, not a config error — say so
+            // plainly so it isn't mistaken for a bad key.
+            let msg = if code.as_u16() == 429 {
+                format!(
+                    "Rate limited (429): you've hit Gemini's per-minute or daily \
+                     quota. Wait a minute and retry, switch to a lighter model \
+                     (2.0 Flash), or enable billing on the API key's project.\n\n{detail}"
+                )
+            } else {
+                format!("API error {code}: {detail}")
+            };
+            let _ = proxy.emit(ChatEvent::Receive(msg));
             return;
         }
 
