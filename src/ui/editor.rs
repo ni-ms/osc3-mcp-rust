@@ -15,7 +15,6 @@ impl ColorPalette {
     pub const OSC3_ACCENT: Color = Color::rgb(244, 63, 94); // Rose
     pub const FILTER_ACCENT: Color = Color::rgb(168, 85, 247); // Purple
     pub const BG_CARD_ALT: Color = Color::rgb(28, 28, 34);
-    pub const BORDER: Color = Color::rgb(45, 45, 52);
     pub const TEXT_HIGH: Color = Color::rgb(248, 250, 252);
     pub const TEXT_MED: Color = Color::rgb(148, 163, 184);
 }
@@ -164,6 +163,30 @@ const UI_STYLESHEET: &str = r#"
     .dropdown-trigger:hover {
         border-color: #6366F1;
     }
+
+    /* The popup body. vizia_plug's base theme sets a light `:root` color, so the
+       option labels MUST set their own colour explicitly or they render as dark
+       text on this dark panel. The hover rule below is class-scoped so it beats
+       the default `button:hover` (which only lightens the background). */
+    .dropdown-list {
+        background-color: #1C1C22;
+        border: 1px solid #2E3340;
+        corner-radius: 6px;
+        padding: 4px;
+        gap: 2px;
+    }
+    .dropdown-option {
+        background-color: transparent;
+        color: #CBD5E1;
+        corner-radius: 4px;
+        font-size: 10px;
+        alignment: center;
+        transition: background-color 120ms, color 120ms;
+    }
+    .dropdown-option:hover {
+        background-color: #6366F1;
+        color: #F8FAFC;
+    }
 "#;
 
 // --- LOGIC HELPERS ---
@@ -302,30 +325,26 @@ where
                     Waveform::Triangle,
                     Waveform::Sawtooth,
                 ] {
-                    Button::new(cx, |cx| {
-                        Label::new(cx, waveform_to_str(&option)).font_size(10.0)
-                    })
-                    .width(Stretch(1.0))
-                    .height(Pixels(24.0))
-                    .on_press({
-                        let params = params.clone();
-                        move |cx| {
-                            let p_arc = params.get(cx);
-                            let p = map(&*p_arc);
-                            let ptr = p.as_ptr();
-                            let norm = p.preview_normalized(option);
-                            cx.emit(RawParamEvent::BeginSetParameter(ptr));
-                            cx.emit(RawParamEvent::SetParameterNormalized(ptr, norm));
-                            cx.emit(RawParamEvent::EndSetParameter(ptr));
-                            cx.emit(PopupEvent::Close);
-                        }
-                    });
+                    Button::new(cx, |cx| Label::new(cx, waveform_to_str(&option)))
+                        .class("dropdown-option")
+                        .width(Stretch(1.0))
+                        .height(Pixels(24.0))
+                        .on_press({
+                            let params = params.clone();
+                            move |cx| {
+                                let p_arc = params.get(cx);
+                                let p = map(&*p_arc);
+                                let ptr = p.as_ptr();
+                                let norm = p.preview_normalized(option);
+                                cx.emit(RawParamEvent::BeginSetParameter(ptr));
+                                cx.emit(RawParamEvent::SetParameterNormalized(ptr, norm));
+                                cx.emit(RawParamEvent::EndSetParameter(ptr));
+                                cx.emit(PopupEvent::Close);
+                            }
+                        });
                 }
             })
-            .background_color(ColorPalette::BG_CARD_ALT)
-            .border_width(Pixels(1.0))
-            .border_color(ColorPalette::BORDER)
-            .corner_radius(Pixels(6.0));
+            .class("dropdown-list");
         },
     )
     .placement(Placement::Bottom)
@@ -377,31 +396,27 @@ where
                     FilterMode::BandPass,
                     FilterMode::Notch,
                 ] {
-                    Button::new(cx, |cx| {
-                        Label::new(cx, filter_mode_to_str(&option)).font_size(10.0)
-                    })
-                    .width(Stretch(1.0))
-                    .height(Pixels(24.0))
-                    .on_press({
-                        let params = params.clone();
-                        let opt = option;
-                        move |cx| {
-                            let p_arc = params.get(cx);
-                            let p = map(&*p_arc);
-                            let ptr = p.as_ptr();
-                            let norm = p.preview_normalized(opt);
-                            cx.emit(RawParamEvent::BeginSetParameter(ptr));
-                            cx.emit(RawParamEvent::SetParameterNormalized(ptr, norm));
-                            cx.emit(RawParamEvent::EndSetParameter(ptr));
-                            cx.emit(PopupEvent::Close);
-                        }
-                    });
+                    Button::new(cx, |cx| Label::new(cx, filter_mode_to_str(&option)))
+                        .class("dropdown-option")
+                        .width(Stretch(1.0))
+                        .height(Pixels(24.0))
+                        .on_press({
+                            let params = params.clone();
+                            let opt = option;
+                            move |cx| {
+                                let p_arc = params.get(cx);
+                                let p = map(&*p_arc);
+                                let ptr = p.as_ptr();
+                                let norm = p.preview_normalized(opt);
+                                cx.emit(RawParamEvent::BeginSetParameter(ptr));
+                                cx.emit(RawParamEvent::SetParameterNormalized(ptr, norm));
+                                cx.emit(RawParamEvent::EndSetParameter(ptr));
+                                cx.emit(PopupEvent::Close);
+                            }
+                        });
                 }
             })
-            .background_color(ColorPalette::BG_CARD_ALT)
-            .border_width(Pixels(1.0))
-            .border_color(ColorPalette::BORDER)
-            .corner_radius(Pixels(6.0));
+            .class("dropdown-list");
         },
     )
     .placement(Placement::Bottom)

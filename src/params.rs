@@ -92,7 +92,8 @@ impl OscillatorParams {
                 },
             )
             .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" Hz")
+            // `v2s_f32_hz_then_khz` already appends "Hz"/"kHz"; do NOT also set
+            // `.with_unit(" Hz")` or the readout reads e.g. "1.50 kHz Hz".
             .with_value_to_string(formatters::v2s_f32_hz_then_khz(2))
             .with_string_to_value(formatters::s2v_f32_hz_then_khz()),
 
@@ -191,7 +192,7 @@ impl Default for FilterParams {
                 },
             )
             .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" Hz")
+            // Formatter emits its own "Hz"/"kHz"; no `.with_unit` (see frequency).
             .with_value_to_string(formatters::v2s_f32_hz_then_khz(0)),
 
             resonance: FloatParam::new(

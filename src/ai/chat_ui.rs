@@ -287,7 +287,7 @@ pub fn chat_panel(cx: &mut Context, params: Arc<SineParams>) {
         })
         .class("chat-header");
 
-        ScrollView::new(cx, |cx| {
+        let transcript = ScrollView::new(cx, |cx| {
             List::new(cx, ChatState::messages, |cx, _, item| {
                 VStack::new(cx, |cx| {
                     Label::new(cx, item.map(|m| role_label(m.role).to_string())).class("chat-role");
@@ -298,7 +298,17 @@ pub fn chat_panel(cx: &mut Context, params: Arc<SineParams>) {
                 .class("chat-msg");
             });
         })
-        .class("chat-transcript");
+        .class("chat-transcript")
+        .entity();
+
+        // Auto-scroll the transcript to the newest message. Each `Send`,
+        // `ToolLog`, and `Receive` pushes onto `messages`, so binding to its
+        // length pins the view to the bottom as the agent streams tool logs and
+        // its final reply. `SetY(1.0)` is normalized progress, so it lands at the
+        // bottom regardless of the (post-layout) content height.
+        Binding::new(cx, ChatState::messages.map(|m| m.len()), move |cx, _len| {
+            cx.emit_to(transcript, ScrollEvent::SetY(1.0));
+        });
 
         Label::new(cx, ChatState::status).class("chat-status");
 
