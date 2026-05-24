@@ -12,17 +12,9 @@ members = ["xtask"]
 [dependencies]
 nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", features = ["assert_process_allocs", "standalone"] }
 vizia_plug = { git = "https://github.com/vizia/vizia-plug.git", branch = "main" }
-fluent-bundle = "0.15.3"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.143"
-rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", features = ["server", "transport-io", "macros"] }
-tokio = { version = "1.48.0", features = ["full"] }
-anyhow = "1.0"
-schemars = "1.0"
-crossbeam-channel = "0.5"
-tracing = "0.1.41"
-base64 = "0.22.1"
-rfd = "0.16.0"
+tokio = { version = "1.48.0", features = ["rt-multi-thread"] }
 reqwest = { version = "0.13.0-rc.1", default-features = false, features = ["json", "native-tls"] }
 dirs = "5"
 

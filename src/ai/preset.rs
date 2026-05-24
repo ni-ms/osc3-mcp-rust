@@ -220,6 +220,12 @@ pub fn load(name: &str) -> Result<PresetData, String> {
         std::fs::read_to_string(&path).map_err(|e| format!("read {}: {e}", path.display()))?;
     let data: PresetData =
         serde_json::from_str(&text).map_err(|e| format!("parse {}: {e}", path.display()))?;
+    if data.schema_version > SCHEMA_VERSION {
+        return Err(format!(
+            "preset '{name}' uses schema version {} but this build supports up to {SCHEMA_VERSION}",
+            data.schema_version
+        ));
+    }
     Ok(data)
 }
 

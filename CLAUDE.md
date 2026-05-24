@@ -81,14 +81,28 @@ automation gestures. Layout is tab-based (oscillators / envelope / filter / AI).
 Each widget module currently injects its own CSS via `cx.add_stylesheet` and the editor has a
 large inline `UI_STYLESHEET` const; styling is CSS-string driven, not Rust-typed.
 
-**AI layer is currently inert** (`ai/mcp.rs`, `ai/chat_ui.rs`): `chat_ui.rs` is entirely
-commented out, and `start_mcp_server` only spawns a thread that sleeps. `PluginState` in
-`ai/mcp.rs` is a hand-maintained *mirror* of `SineParams` behind a `tokio::sync::RwLock`
-and is **not wired to the audio params** — changing it does not affect sound (the audio
-thread can't read an async lock). If you work on the AI feature, do not extend the mirror;
-route AI parameter writes through the real `SineParams` (e.g. a lock-free command queue
-drained in `process()`, or `nih_plug`'s `BackgroundTask`/`AsyncExecutor`). See
-`ARCHITECTURE_REVIEW.md` for the detailed rationale.
+**AI layer** (`ai/`): a working "AI ASSIST" tab — an in-plugin chat that drives the synth
+via the Gemini tool-calling API. The old `tokio::RwLock` parameter *mirror* is gone; AI
+parameter writes now go through the **real `SineParams`** using the same `RawParamEvent`
+idiom as the GUI knobs, so the host sees automation and the audio thread reads atomics —
+no locks on the audio thread. Modules:
+- `chat_ui.rs` — `ChatState` model + `chat_panel` view; owns `Arc<SineParams>` and a shared
+  `tokio::Runtime`. `ChatEvent::Send` spawns the request via `cx.spawn`.
+- `llm.rs` — `AiConfig` (key/model/temperature, persisted to
+  `<config-dir>/TripleOscSynth/config.json`, **not** host state) + the multi-turn agentic
+  loop `run_conversation` (capped at `MAX_ROUNDS`).
+- `tools.rs` — Gemini `functionDeclarations` (`get_state`, `set_parameter`,
+  `save`/`load`/`list_presets`) + the in-plugin `dispatch`.
+- `bridge.rs` — maps a tool's (name, value) to a real param write, emitted as a
+  `RawParamEvent` Begin/Set/End triple via a caller-supplied `emit` closure (the `cx.spawn`
+  `ContextProxy`).
+- `preset.rs` — `PresetData`, a flat serializable snapshot (`capture`/`apply`), plus JSON
+  disk storage under `<config-dir>/TripleOscSynth/presets/`. The serde field names are the
+  canonical vocabulary shared with `get_state` and `set_parameter`.
+
+The `rmcp` external-MCP-server path is **not** built; an external server would be an additive
+front-end reusing `bridge`/`preset`/`tools` (see `AI_INTEGRATION_PLAN.md` "Future" and
+`ARCHITECTURE_REVIEW.md` for the rationale behind the no-mirror design).
 
 ## Conventions
 

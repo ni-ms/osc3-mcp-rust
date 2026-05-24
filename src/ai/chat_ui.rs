@@ -151,6 +151,10 @@ pub struct ChatState {
     model: AiModel,
     temperature: f32,
     params: Arc<SineParams>,
+    /// Shared async runtime, built once when the panel opens. Each send drives a
+    /// request on it via `block_on` from a `cx.spawn` thread, instead of standing
+    /// up a fresh runtime (and thread pool) per message.
+    runtime: Option<Arc<tokio::runtime::Runtime>>,
 }
 
 impl ChatState {
@@ -218,6 +222,15 @@ impl Model for ChatState {
                     return;
                 }
 
+                let Some(rt) = self.runtime.clone() else {
+                    self.messages.push(ChatMessage {
+                        role: Role::Assistant,
+                        text: "Async runtime is unavailable; cannot reach the AI service."
+                            .to_string(),
+                    });
+                    return;
+                };
+
                 self.sending = true;
                 self.status = "Thinking…".to_string();
 
@@ -230,13 +243,8 @@ impl Model for ChatState {
                 let convo: Vec<(Role, String)> =
                     self.messages.iter().map(|m| (m.role, m.text.clone())).collect();
 
-                cx.spawn(move |proxy| match tokio::runtime::Runtime::new() {
-                    Ok(rt) => {
-                        rt.block_on(super::llm::run_conversation(proxy, &params, &cfg, convo));
-                    }
-                    Err(e) => {
-                        let _ = proxy.emit(ChatEvent::Receive(format!("Runtime error: {e}")));
-                    }
+                cx.spawn(move |proxy| {
+                    rt.block_on(super::llm::run_conversation(proxy, &params, &cfg, convo));
                 });
             }
         });
@@ -262,6 +270,7 @@ pub fn chat_panel(cx: &mut Context, params: Arc<SineParams>) {
         model: cfg.model,
         temperature: cfg.temperature,
         params,
+        runtime: tokio::runtime::Runtime::new().ok().map(Arc::new),
     }
     .build(cx);
 
