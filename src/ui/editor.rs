@@ -14,6 +14,7 @@ impl ColorPalette {
     pub const OSC2_ACCENT: Color = Color::rgb(34, 197, 94); // Emerald
     pub const OSC3_ACCENT: Color = Color::rgb(244, 63, 94); // Rose
     pub const FILTER_ACCENT: Color = Color::rgb(168, 85, 247); // Purple
+    pub const ENV_ACCENT: Color = Color::rgb(129, 140, 248); // Indigo
     pub const BG_CARD_ALT: Color = Color::rgb(28, 28, 34);
     pub const TEXT_HIGH: Color = Color::rgb(248, 250, 252);
     pub const TEXT_MED: Color = Color::rgb(148, 163, 184);
@@ -644,25 +645,63 @@ pub(crate) fn create(
                     }
                     "envelope" => {
                         VStack::new(cx, |cx| {
-                            module_header(cx, "AMPLITUDE ENVELOPE", ColorPalette::FILTER_ACCENT);
-                            HStack::new(cx, |cx| {
-                                knob_cell(cx, "ATTACK", ACCENT_DEFAULT, Data::params, |p| {
-                                    &p.adsr.attack
-                                });
-                                knob_cell(cx, "DECAY", ACCENT_DEFAULT, Data::params, |p| {
-                                    &p.adsr.decay
-                                });
-                                knob_cell(cx, "SUSTAIN", ACCENT_DEFAULT, Data::params, |p| {
-                                    &p.adsr.sustain
-                                });
-                                knob_cell(cx, "RELEASE", ACCENT_DEFAULT, Data::params, |p| {
-                                    &p.adsr.release
-                                });
+                            VStack::new(cx, |cx| {
+                                module_header(
+                                    cx,
+                                    "AMPLITUDE ENVELOPE",
+                                    ColorPalette::ENV_ACCENT,
+                                );
+                                HStack::new(cx, |cx| {
+                                    knob_cell(cx, "ATTACK", ACCENT_DEFAULT, Data::params, |p| {
+                                        &p.adsr.attack
+                                    });
+                                    knob_cell(cx, "DECAY", ACCENT_DEFAULT, Data::params, |p| {
+                                        &p.adsr.decay
+                                    });
+                                    knob_cell(cx, "SUSTAIN", ACCENT_DEFAULT, Data::params, |p| {
+                                        &p.adsr.sustain
+                                    });
+                                    knob_cell(cx, "RELEASE", ACCENT_DEFAULT, Data::params, |p| {
+                                        &p.adsr.release
+                                    });
+                                })
+                                .gap(Pixels(16.0))
+                                .alignment(Alignment::Center);
                             })
-                            .gap(Pixels(16.0))
-                            .alignment(Alignment::Center);
+                            .class("module-card");
+
+                            // Filter envelope: same ADSR shape, plus a bipolar
+                            // AMOUNT (octaves) that sets how far it sweeps the
+                            // cutoff. AMOUNT = 0 leaves the filter static.
+                            VStack::new(cx, |cx| {
+                                module_header(
+                                    cx,
+                                    "FILTER ENVELOPE",
+                                    ColorPalette::FILTER_ACCENT,
+                                );
+                                HStack::new(cx, |cx| {
+                                    knob_cell(cx, "AMOUNT", ACCENT_FILTER, Data::params, |p| {
+                                        &p.filter.env_amount
+                                    });
+                                    knob_cell(cx, "ATTACK", ACCENT_FILTER, Data::params, |p| {
+                                        &p.filter_env.attack
+                                    });
+                                    knob_cell(cx, "DECAY", ACCENT_FILTER, Data::params, |p| {
+                                        &p.filter_env.decay
+                                    });
+                                    knob_cell(cx, "SUSTAIN", ACCENT_FILTER, Data::params, |p| {
+                                        &p.filter_env.sustain
+                                    });
+                                    knob_cell(cx, "RELEASE", ACCENT_FILTER, Data::params, |p| {
+                                        &p.filter_env.release
+                                    });
+                                })
+                                .gap(Pixels(16.0))
+                                .alignment(Alignment::Center);
+                            })
+                            .class("module-card");
                         })
-                        .class("module-card");
+                        .gap(Pixels(12.0));
                     }
                     "ai" => {
                         crate::ai::chat_ui::chat_panel(cx, ai_params.clone());

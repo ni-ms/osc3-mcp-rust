@@ -48,10 +48,18 @@ pub struct FrameParams {
     filter_cutoff: f32,
     filter_resonance: f32,
     filter_drive: f32,
+    /// Filter-envelope depth in octaves (bipolar). `0` means the filter envelope
+    /// has no effect on the cutoff.
+    filter_env_amount: f32,
     attack: f32,
     decay: f32,
     sustain: f32,
     release: f32,
+    /// Filter-envelope ADSR, separate from the amp envelope above.
+    filter_attack: f32,
+    filter_decay: f32,
+    filter_sustain: f32,
+    filter_release: f32,
 }
 
 impl FrameParams {
@@ -67,10 +75,15 @@ impl FrameParams {
             filter_cutoff: p.filter.cutoff.smoothed.next(),
             filter_resonance: p.filter.resonance.smoothed.next(),
             filter_drive: p.filter.drive.smoothed.next(),
+            filter_env_amount: p.filter.env_amount.smoothed.next(),
             attack: p.adsr.attack.smoothed.next().max(0.001),
             decay: p.adsr.decay.smoothed.next().max(0.001),
             sustain: p.adsr.sustain.smoothed.next().clamp(0.0, 1.0),
             release: p.adsr.release.smoothed.next().max(0.001),
+            filter_attack: p.filter_env.attack.smoothed.next().max(0.001),
+            filter_decay: p.filter_env.decay.smoothed.next().max(0.001),
+            filter_sustain: p.filter_env.sustain.smoothed.next().clamp(0.0, 1.0),
+            filter_release: p.filter_env.release.smoothed.next().max(0.001),
         }
     }
 }
@@ -87,6 +100,9 @@ pub struct Voice {
 
     filter: BiquadFilter,
     envelope: Envelope,
+    /// Modulates the filter cutoff; runs in lockstep with `envelope` (same
+    /// note-on/note-off), scaled by `FrameParams::filter_env_amount`.
+    filter_env: Envelope,
 }
 
 impl Voice {
@@ -101,6 +117,7 @@ impl Voice {
             osc3: UnisonOscillator::new(8),
             filter: BiquadFilter::new(sample_rate),
             envelope: Envelope::new(sample_rate),
+            filter_env: Envelope::new(sample_rate),
         }
     }
 
@@ -114,16 +131,19 @@ impl Voice {
         self.osc3.reset();
         self.filter.reset();
         self.envelope.note_on();
+        self.filter_env.note_on();
     }
 
     pub fn note_off(&mut self) {
         self.envelope.note_off();
+        self.filter_env.note_off();
     }
 
     /// Begins the release stage if this voice is playing the given note.
     pub fn release_if_matches(&mut self, note: u8) {
         if self.active && self.note == note {
             self.envelope.note_off();
+            self.filter_env.note_off();
         }
     }
 
@@ -141,6 +161,7 @@ impl Voice {
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         self.filter.set_sample_rate(sample_rate);
         self.envelope.set_sample_rate(sample_rate);
+        self.filter_env.set_sample_rate(sample_rate);
     }
 
     /// Clears oscillator/filter state without touching the envelope (used by
@@ -169,8 +190,20 @@ impl Voice {
             + render_osc(&mut self.osc2, &f.osc[1], base, sample_rate)
             + render_osc(&mut self.osc3, &f.osc[2], base, sample_rate);
 
+        // Advance the filter envelope in lockstep with the amp envelope and use
+        // it to push the cutoff up/down by `env_amount` octaves. `2^0 == 1`, so
+        // an amount of 0 leaves the cutoff exactly at the knob value. The filter
+        // itself re-clamps the result to [20 Hz, Nyquist].
+        let filter_env_level = self.filter_env.process(
+            f.filter_attack,
+            f.filter_decay,
+            f.filter_sustain,
+            f.filter_release,
+        );
+        let modulated_cutoff = f.filter_cutoff * 2.0_f32.powf(f.filter_env_amount * filter_env_level);
+
         self.filter
-            .set_coefficients(f.filter_mode, f.filter_cutoff, f.filter_resonance);
+            .set_coefficients(f.filter_mode, modulated_cutoff, f.filter_resonance);
         sample = self.filter.process(sample, f.filter_drive);
 
         let envelope_level = self

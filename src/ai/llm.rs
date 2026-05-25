@@ -4,6 +4,8 @@ use crate::ai::{preset, tools};
 use crate::SineParams;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use vizia_plug::vizia::prelude::*;
 
 use super::chat_ui::{ChatEvent, Role};
@@ -88,7 +90,8 @@ fn system_prompt() -> &'static str {
     concat!(
         "You are an expert sound designer embedded in a triple-oscillator subtractive synthesizer. ",
         "Each of the 3 oscillators has a waveform, frequency, detune, phase, gain, octave, and unison ",
-        "controls; there is a multimode filter (cutoff/resonance/drive) and an ADSR amplitude envelope.\n\n",
+        "controls; there is a multimode filter (cutoff/resonance/drive), an ADSR amplitude envelope, ",
+        "and a separate ADSR filter envelope whose depth is set by filter_env_amount (in octaves).\n\n",
         "Design sounds by calling set_parameter (call it many times for one request). To tweak or copy ",
         "the existing sound, call get_state first. Save with save_preset, recall with load_preset, and ",
         "use list_presets to discover names. After making changes, reply with a short, friendly summary ",
@@ -111,6 +114,7 @@ pub async fn run_conversation(
     params: &SineParams,
     cfg: &AiConfig,
     convo: Vec<(Role, String)>,
+    cancel: Arc<AtomicBool>,
 ) {
     // Keys copied from AI Studio often carry a trailing newline or surrounding
     // whitespace; left in the URL that yields an opaque API error, so trim it.
@@ -130,6 +134,12 @@ pub async fn run_conversation(
     let client = reqwest::Client::new();
 
     for _ in 0..MAX_ROUNDS {
+        // Bail out between rounds if the user pressed Stop. The UI already reset
+        // its "sending" state, so we exit quietly without another Receive.
+        if cancel.load(Ordering::Relaxed) {
+            return;
+        }
+
         let body = json!({
             "system_instruction": { "parts": [{ "text": system_prompt() }] },
             "contents": contents,
@@ -192,6 +202,12 @@ pub async fn run_conversation(
                 text
             };
             let _ = proxy.emit(ChatEvent::Receive(reply));
+            return;
+        }
+
+        // Don't apply a fresh batch of parameter writes if the user stopped
+        // while the request was in flight.
+        if cancel.load(Ordering::Relaxed) {
             return;
         }
 

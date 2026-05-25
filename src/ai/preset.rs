@@ -11,7 +11,23 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use vizia_plug::widgets::RawParamEvent;
 
-const SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: u32 = 2;
+
+// Defaults for the v2 filter-envelope fields so v1 presets (which lack them)
+// still load. `filter_env_amount` defaults to 0 (envelope disabled), and the
+// ADSR defaults mirror `AdsrParams::default` so enabling it later is musical.
+fn d_attack() -> f32 {
+    0.01
+}
+fn d_decay() -> f32 {
+    0.5
+}
+fn d_sustain() -> f32 {
+    0.7
+}
+fn d_release() -> f32 {
+    1.0
+}
 
 /// A complete, serializable snapshot of the synth's parameters.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -62,12 +78,24 @@ pub struct PresetData {
     pub filter_cutoff: f32,
     pub filter_resonance: f32,
     pub filter_drive: f32,
+    #[serde(default)]
+    pub filter_env_amount: f32,
 
     // --- Envelope (ADSR) ---
     pub attack: f32,
     pub decay: f32,
     pub sustain: f32,
     pub release: f32,
+
+    // --- Filter envelope (ADSR) ---
+    #[serde(default = "d_attack")]
+    pub filter_attack: f32,
+    #[serde(default = "d_decay")]
+    pub filter_decay: f32,
+    #[serde(default = "d_sustain")]
+    pub filter_sustain: f32,
+    #[serde(default = "d_release")]
+    pub filter_release: f32,
 }
 
 impl PresetData {
@@ -114,11 +142,17 @@ impl PresetData {
             filter_cutoff: p.filter.cutoff.value(),
             filter_resonance: p.filter.resonance.value(),
             filter_drive: p.filter.drive.value(),
+            filter_env_amount: p.filter.env_amount.value(),
 
             attack: p.adsr.attack.value(),
             decay: p.adsr.decay.value(),
             sustain: p.adsr.sustain.value(),
             release: p.adsr.release.value(),
+
+            filter_attack: p.filter_env.attack.value(),
+            filter_decay: p.filter_env.decay.value(),
+            filter_sustain: p.filter_env.sustain.value(),
+            filter_release: p.filter_env.release.value(),
         }
     }
 
@@ -161,11 +195,17 @@ impl PresetData {
         emit_set(&p.filter.cutoff, self.filter_cutoff, emit);
         emit_set(&p.filter.resonance, self.filter_resonance, emit);
         emit_set(&p.filter.drive, self.filter_drive, emit);
+        emit_set(&p.filter.env_amount, self.filter_env_amount, emit);
 
         emit_set(&p.adsr.attack, self.attack, emit);
         emit_set(&p.adsr.decay, self.decay, emit);
         emit_set(&p.adsr.sustain, self.sustain, emit);
         emit_set(&p.adsr.release, self.release, emit);
+
+        emit_set(&p.filter_env.attack, self.filter_attack, emit);
+        emit_set(&p.filter_env.decay, self.filter_decay, emit);
+        emit_set(&p.filter_env.sustain, self.filter_sustain, emit);
+        emit_set(&p.filter_env.release, self.filter_release, emit);
     }
 }
 

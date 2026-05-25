@@ -145,12 +145,19 @@ pub fn apply_write(
         "filter_cutoff" => emit_set(&p.filter.cutoff, as_f32(value)?, emit),
         "filter_resonance" => emit_set(&p.filter.resonance, as_f32(value)?, emit),
         "filter_drive" => emit_set(&p.filter.drive, as_f32(value)?, emit),
+        "filter_env_amount" => emit_set(&p.filter.env_amount, as_f32(value)?, emit),
 
-        // --- Envelope ---
+        // --- Amp envelope ---
         "attack" => emit_set(&p.adsr.attack, as_f32(value)?, emit),
         "decay" => emit_set(&p.adsr.decay, as_f32(value)?, emit),
         "sustain" => emit_set(&p.adsr.sustain, as_f32(value)?, emit),
         "release" => emit_set(&p.adsr.release, as_f32(value)?, emit),
+
+        // --- Filter envelope ---
+        "filter_attack" => emit_set(&p.filter_env.attack, as_f32(value)?, emit),
+        "filter_decay" => emit_set(&p.filter_env.decay, as_f32(value)?, emit),
+        "filter_sustain" => emit_set(&p.filter_env.sustain, as_f32(value)?, emit),
+        "filter_release" => emit_set(&p.filter_env.release, as_f32(value)?, emit),
 
         _ => return Err(format!("unknown parameter '{name}'")),
     }

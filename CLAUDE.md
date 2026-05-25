@@ -62,6 +62,10 @@ stealing via `Voice::age`), syncs unison voice counts once per block, then per o
 builds a `FrameParams` snapshot and sums all active voices. The DSP primitives live in `dsp/`
 (`oscillator.rs`, `filter.rs`, `envelope.rs`, `voice.rs`) and are pure `f32` math with no
 `nih_plug` dependency, each voice running `UnisonOscillator ×3 → BiquadFilter → Envelope`.
+Each voice owns **two** `Envelope`s: the amp envelope (gates output) and a filter envelope
+that runs in lockstep and scales the cutoff by `2^(filter.env_amount * level)` octaves
+(`env_amount = 0`, the default, leaves the filter static). Params: `filter.env_amount` plus
+the `fenv_`-prefixed `filter_env: AdsrParams` in `SineParams`.
 
 > **Smoothers must be advanced exactly once per sample.** `FrameParams::next` (in
 > `dsp/voice.rs`) calls every `param.smoothed.next()` once and the resulting snapshot is

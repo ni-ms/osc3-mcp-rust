@@ -176,6 +176,12 @@ pub struct FilterParams {
     pub resonance: FloatParam,
     #[id = "drive"]
     pub drive: FloatParam,
+    /// Bipolar filter-envelope depth, in octaves. The per-voice filter envelope
+    /// (see [`SineParams::filter_env`]) scales the cutoff by `2^(env_amount *
+    /// env_level)`. `0` (the default) disables the envelope, so existing patches
+    /// are unchanged.
+    #[id = "env_amount"]
+    pub env_amount: FloatParam,
 }
 
 impl Default for FilterParams {
@@ -210,6 +216,18 @@ impl Default for FilterParams {
                 FloatRange::Linear { min: 1.0, max: 5.0 },
             )
             .with_smoother(SmoothingStyle::Linear(50.0)),
+
+            env_amount: FloatParam::new(
+                "Filter Env Amount",
+                0.0,
+                FloatRange::Linear {
+                    min: -8.0,
+                    max: 8.0,
+                },
+            )
+            .with_smoother(SmoothingStyle::Linear(50.0))
+            .with_unit(" oct")
+            .with_value_to_string(formatters::v2s_f32_rounded(1)),
         }
     }
 }
@@ -291,6 +309,12 @@ pub struct SineParams {
 
     #[nested(group = "Envelope")]
     pub adsr: AdsrParams,
+
+    /// Dedicated ADSR that modulates the filter cutoff. Shares the `AdsrParams`
+    /// shape as the amp envelope but with its own (`fenv_`-prefixed) param IDs.
+    /// Its depth/direction is set by [`FilterParams::env_amount`].
+    #[nested(id_prefix = "fenv", group = "Filter Envelope")]
+    pub filter_env: AdsrParams,
 }
 
 impl Default for SineParams {
@@ -304,6 +328,7 @@ impl Default for SineParams {
 
             filter: FilterParams::default(),
             adsr: AdsrParams::default(),
+            filter_env: AdsrParams::default(),
         }
     }
 }

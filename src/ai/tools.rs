@@ -26,8 +26,12 @@ pub fn gemini_tools() -> Value {
                     "gainN (linear 0.015..1.0), octaveN (-4..4), unison_voicesN (1..8), ",
                     "unison_detuneN (0..50 cents), unison_blendN (0..1), unison_volumeN (0..1).\n",
                     "  Filter: filter_mode (lowpass|highpass|bandpass|notch), filter_cutoff (20-20000 Hz), ",
-                    "filter_resonance (0..1), filter_drive (1..5).\n",
-                    "  Envelope: attack/decay (0.001..5 s), sustain (0..1), release (0.001..10 s)."
+                    "filter_resonance (0..1), filter_drive (1..5), filter_env_amount (-8..8 octaves, ",
+                    "how far the filter envelope sweeps the cutoff; 0 = static).\n",
+                    "  Amp envelope: attack/decay (0.001..5 s), sustain (0..1), release (0.001..10 s).\n",
+                    "  Filter envelope: filter_attack/filter_decay (0.001..5 s), filter_sustain (0..1), ",
+                    "filter_release (0.001..10 s). For a classic filter sweep set a positive ",
+                    "filter_env_amount and a slow filter_attack."
                 ),
                 "parameters": {
                     "type": "object",

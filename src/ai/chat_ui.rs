@@ -3,6 +3,7 @@
 //! `nih_plug` params through `RawParamEvent`s emitted from the background task.
 
 use crate::SineParams;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use vizia_plug::vizia::prelude::*;
 
@@ -84,6 +85,18 @@ pub const CHAT_STYLES: &str = r#"
         alignment: center;
     }
     .chat-send:hover { background-color: #818CF8; }
+    .chat-stop {
+        height: 28px;
+        background-color: #3F1D2B;
+        border: 1px solid #F43F5E;
+        corner-radius: 4px;
+        color: #FDA4AF;
+        font-size: 11px;
+        padding-left: 12px;
+        padding-right: 12px;
+        alignment: center;
+    }
+    .chat-stop:hover { background-color: #F43F5E; color: #0A0A0C; }
 
     .settings-overlay {
         position-type: absolute;
@@ -132,12 +145,26 @@ pub struct ChatMessage {
     pub text: String,
 }
 
+/// The opening assistant message, shown on launch and after "Clear".
+fn greeting() -> ChatMessage {
+    ChatMessage {
+        role: Role::Assistant,
+        text: "Describe a sound and I'll dial it in — e.g. \"warm detuned pad\" — \
+               or ask me to save/load a preset. Set your API key in ⚙ first."
+            .to_string(),
+    }
+}
+
 pub enum ChatEvent {
     EditInput(String),
     Send,
     Receive(String),
     ToolLog(String),
     Status(String),
+    /// Cancel the in-flight request.
+    Stop,
+    /// Reset the transcript to the opening message.
+    Clear,
     ToggleSettings,
     SetApiKey(String),
     SetModel(AiModel),
@@ -158,6 +185,9 @@ pub struct ChatState {
     /// request on it via `block_on` from a `cx.spawn` thread, instead of standing
     /// up a fresh runtime (and thread pool) per message.
     runtime: Option<Arc<tokio::runtime::Runtime>>,
+    /// Set to `true` by `Stop`/`Clear` to abort the in-flight agentic loop; the
+    /// background task polls this between tool-call rounds. Reset on each `Send`.
+    cancel: Arc<AtomicBool>,
 }
 
 impl ChatState {
@@ -190,6 +220,26 @@ impl Model for ChatState {
             }
 
             ChatEvent::Status(s) => self.status = s.clone(),
+
+            ChatEvent::Stop => {
+                // Signal the background loop to bail, then free the UI now so the
+                // user can type again without waiting for the in-flight round.
+                self.cancel.store(true, Ordering::Relaxed);
+                self.sending = false;
+                self.status.clear();
+                self.messages.push(ChatMessage {
+                    role: Role::Tool,
+                    text: "⏹ Stopped.".to_string(),
+                });
+            }
+
+            ChatEvent::Clear => {
+                // Abort anything in flight and reset the transcript.
+                self.cancel.store(true, Ordering::Relaxed);
+                self.sending = false;
+                self.status.clear();
+                self.messages = vec![greeting()];
+            }
 
             ChatEvent::Receive(text) => {
                 self.sending = false;
@@ -237,6 +287,8 @@ impl Model for ChatState {
 
                 self.sending = true;
                 self.status = "Thinking…".to_string();
+                // Fresh run: clear any stale Stop from a previous request.
+                self.cancel.store(false, Ordering::Relaxed);
 
                 let params = self.params.clone();
                 let cfg = AiConfig {
@@ -246,9 +298,12 @@ impl Model for ChatState {
                 };
                 let convo: Vec<(Role, String)> =
                     self.messages.iter().map(|m| (m.role, m.text.clone())).collect();
+                let cancel = self.cancel.clone();
 
                 cx.spawn(move |proxy| {
-                    rt.block_on(super::llm::run_conversation(proxy, &params, &cfg, convo));
+                    rt.block_on(super::llm::run_conversation(
+                        proxy, &params, &cfg, convo, cancel,
+                    ));
                 });
             }
         });
@@ -260,12 +315,7 @@ pub fn chat_panel(cx: &mut Context, params: Arc<SineParams>) {
     let cfg = AiConfig::load();
 
     ChatState {
-        messages: vec![ChatMessage {
-            role: Role::Assistant,
-            text: "Describe a sound and I'll dial it in — e.g. \"warm detuned pad\" — \
-                   or ask me to save/load a preset. Set your API key in ⚙ first."
-                .to_string(),
-        }],
+        messages: vec![greeting()],
         input: String::new(),
         sending: false,
         status: String::new(),
@@ -275,12 +325,17 @@ pub fn chat_panel(cx: &mut Context, params: Arc<SineParams>) {
         temperature: cfg.temperature,
         params,
         runtime: tokio::runtime::Runtime::new().ok().map(Arc::new),
+        cancel: Arc::new(AtomicBool::new(false)),
     }
     .build(cx);
 
     VStack::new(cx, |cx| {
         HStack::new(cx, |cx| {
             Label::new(cx, "AI SYNTH AGENT").class("chat-title");
+            Button::new(cx, |cx| Label::new(cx, "Clear"))
+                .on_press(|cx| cx.emit(ChatEvent::Clear))
+                .class("chat-iconbtn")
+                .width(Pixels(44.0));
             Button::new(cx, |cx| Label::new(cx, "⚙"))
                 .on_press(|cx| cx.emit(ChatEvent::ToggleSettings))
                 .class("chat-iconbtn");
@@ -318,9 +373,18 @@ pub fn chat_panel(cx: &mut Context, params: Arc<SineParams>) {
                 .width(Stretch(1.0))
                 .on_edit(|cx, text| cx.emit(ChatEvent::EditInput(text)))
                 .on_submit(|cx, _, _| cx.emit(ChatEvent::Send));
-            Button::new(cx, |cx| Label::new(cx, "Send"))
-                .on_press(|cx| cx.emit(ChatEvent::Send))
-                .class("chat-send");
+            // While a request is in flight the button becomes a Stop control.
+            Binding::new(cx, ChatState::sending, |cx, sending| {
+                if sending.get(cx) {
+                    Button::new(cx, |cx| Label::new(cx, "Stop"))
+                        .on_press(|cx| cx.emit(ChatEvent::Stop))
+                        .class("chat-stop");
+                } else {
+                    Button::new(cx, |cx| Label::new(cx, "Send"))
+                        .on_press(|cx| cx.emit(ChatEvent::Send))
+                        .class("chat-send");
+                }
+            });
         })
         .class("chat-inputrow");
 
