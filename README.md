@@ -38,19 +38,3 @@ to the path above and fill in your key. Format:
   **Use `Gemini25Flash`** — free-tier availability of the others varies by
   account/region, and an unavailable model returns HTTP 429 (`limit: 0`).
 - Never commit a real key. Treat the file as a secret.
-
-Todo:
-
-- Migrate to vizia - DONE
-- Finish pending tasks:
-- Add phase offset / detune - DONE
-- Add an adsr
-- Add a noise option
-- Custom waves (Using bezier?)
-- Reverb option Frequency gain, phase, detune
-- add wt position
-- inspiration:
-  ![img_1.png](img_1.png)
-- Multiple wavetable oscillators (2–3 minimum)
-- WaveTable Position, Phase, Coarse/Fine tuning, Volume
-- Unison: Detune, Blend, Spread, Phase Randomization
