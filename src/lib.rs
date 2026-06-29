@@ -5,6 +5,7 @@ use std::num::NonZeroU32;
 use std::sync::Arc;
 
 mod ai;
+mod audio_copy;
 mod dsp;
 mod params;
 mod ui;
@@ -12,6 +13,7 @@ mod ui;
 pub use params::{AdsrParams, FilterMode, FilterParams, OscillatorParams, SineParams, Waveform};
 pub use ui::PeakMeter;
 
+use audio_copy::PreviewPlayer;
 use dsp::{FrameParams, Voice};
 
 /// Number of polyphonic voices in the pool.
@@ -28,6 +30,9 @@ pub struct SineSynth {
     voices: Vec<Voice>,
     /// Output level published to the GUI meter. Lock-free; written once per block.
     peak_meter: Arc<PeakMeter>,
+    /// RT-safe preview player for the Audio Copy tab. Read on the audio thread,
+    /// written from the GUI thread.
+    preview: Arc<PreviewPlayer>,
 }
 
 impl Default for SineSynth {
@@ -43,6 +48,7 @@ impl Default for SineSynth {
             sample_rate,
             voices,
             peak_meter: Arc::new(PeakMeter::new()),
+            preview: Arc::new(PreviewPlayer::new()),
         }
     }
 }
@@ -115,6 +121,7 @@ impl Plugin for SineSynth {
         ui::editor::create(
             self.params.clone(),
             self.peak_meter.clone(),
+            self.preview.clone(),
             self.params.editor_state.clone(),
         )
     }
@@ -169,6 +176,10 @@ impl Plugin for SineSynth {
                 *output_sample = sample;
             }
         }
+
+        // Mix in any Audio Copy preview playback (RT-safe: reads a published
+        // buffer, no allocation).
+        self.preview.mix_into(buffer, self.sample_rate);
 
         // Publish the block peak to the GUI meter, decaying the previous value
         // so the bar releases smoothly. One relaxed load + store — RT-safe.

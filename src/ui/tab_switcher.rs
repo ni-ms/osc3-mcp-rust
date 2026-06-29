@@ -160,7 +160,7 @@ impl TabSwitcher {
         cx: &mut Context,
         tabs: Vec<TabDefinition>,
         content_builder: F,
-    ) -> Handle<impl View>
+    ) -> Handle<'_, impl View>
     where
         F: 'static + Fn(&mut Context, usize),
     {

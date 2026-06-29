@@ -533,6 +533,7 @@ fn create_osc_section(
 pub(crate) fn create(
     params: Arc<SineParams>,
     peak: Arc<PeakMeter>,
+    preview: Arc<crate::audio_copy::PreviewPlayer>,
     editor_state: Arc<ViziaState>,
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
@@ -543,6 +544,7 @@ pub(crate) fn create(
         cx.add_stylesheet(super::meter::METER_CSS).ok();
         cx.add_stylesheet(super::tab_switcher::TABSWITCHER_THEME).ok();
         cx.add_stylesheet(crate::ai::chat_ui::CHAT_STYLES).ok();
+        cx.add_stylesheet(crate::audio_copy::AUDIO_COPY_STYLES).ok();
 
         Data {
             params: params.clone(),
@@ -551,6 +553,9 @@ pub(crate) fn create(
 
         // The AI tab's tools drive the live parameters directly.
         let ai_params = params.clone();
+        // The Audio Copy tab gets its own param handle + the shared preview player.
+        let audio_params = params.clone();
+        let audio_preview = preview.clone();
         let meter = peak.clone();
 
         VStack::new(cx, move |cx| {
@@ -577,6 +582,7 @@ pub(crate) fn create(
                 TabDefinition::new("envelope", "ENVELOPE"),
                 TabDefinition::new("filters_fx", "FILTER & FX"),
                 TabDefinition::new("ai", "AI ASSIST"),
+                TabDefinition::new("audio_copy", "AUDIO COPY"),
             ];
 
             TabSwitcher::new(cx, main_tabs, move |cx, tab_id, _| {
@@ -705,6 +711,13 @@ pub(crate) fn create(
                     }
                     "ai" => {
                         crate::ai::chat_ui::chat_panel(cx, ai_params.clone());
+                    }
+                    "audio_copy" => {
+                        crate::audio_copy::audio_copy_panel(
+                            cx,
+                            audio_params.clone(),
+                            audio_preview.clone(),
+                        );
                     }
                     _ => {}
                 })
