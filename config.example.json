@@ -1,5 +1,5 @@
 {
-  "api_key": "PASTE_YOUR_GEMINI_KEY_HERE",
-  "model": "Gemini25Flash",
+  "api_key": "PASTE_YOUR_OPENROUTER_KEY_HERE",
+  "model": "google/gemini-2.5-flash",
   "temperature": 0.7
 }

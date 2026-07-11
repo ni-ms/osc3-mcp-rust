@@ -10,14 +10,16 @@ Working in fl studio v25.1.1
 
 ## AI assist configuration
 
-The "AI ASSIST" tab talks to Google's Gemini API. Settings (API key, model,
-temperature) are stored **outside** the host project, in a per-user config file:
+The "AI ASSIST" and "AUDIO COPY" tabs talk to [OpenRouter](https://openrouter.ai)
+(an OpenAI-compatible gateway to many models). Open the **settings gear (⚙) in
+the top-right header** to set your API key and model — these are shared by both
+tabs. Settings are stored **outside** the host project, in a per-user config file:
 
-| OS      | Path                                                      |
-|---------|-----------------------------------------------------------|
-| Windows | `%APPDATA%\TripleOscSynth\config.json`                    |
-| macOS   | `~/Library/Application Support/TripleOscSynth/config.json`|
-| Linux   | `~/.config/TripleOscSynth/config.json`                    |
+| OS      | Path                                                       |
+|---------|------------------------------------------------------------|
+| Windows | `%APPDATA%\TripleOscSynth\config.json`                     |
+| macOS   | `~/Library/Application Support/TripleOscSynth/config.json` |
+| Linux   | `~/.config/TripleOscSynth/config.json`                     |
 
 The app **auto-generates this file with defaults on first launch** if it's
 missing, so you can edit it directly instead of using the in-plugin ⚙ settings
@@ -27,16 +29,17 @@ to the path above and fill in your key. Format:
 
 ```json
 {
-  "api_key": "PASTE_YOUR_GEMINI_KEY_HERE",
-  "model": "Gemini25Flash",
+  "api_key": "PASTE_YOUR_OPENROUTER_KEY_HERE",
+  "model": "google/gemini-2.5-flash",
   "temperature": 0.7
 }
 ```
 
-- Get a free key from [Google AI Studio](https://aistudio.google.com/apikey).
-- `model` must be one of: `Gemini25Flash`, `Gemini25Pro`, `Gemini20Flash`.
-  **Use `Gemini25Flash`** — free-tier availability of the others varies by
-  account/region, and an unavailable model returns HTTP 429 (`limit: 0`).
+- Create a key at [openrouter.ai/keys](https://openrouter.ai/keys).
+- `model` is any OpenRouter model slug, e.g. `openai/gpt-4o`,
+  `anthropic/claude-3.5-sonnet`, or the default `google/gemini-2.5-flash`. The
+  model must support **tool calling**; the Audio Copy "AI Match" additionally
+  needs **audio input** (the default does both).
 - Never commit a real key. Treat the file as a secret.
 
 Todo:

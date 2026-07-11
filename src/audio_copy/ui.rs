@@ -1,5 +1,5 @@
 //! The "AUDIO COPY" tab: upload a clip, separate it into auditionable stems, and
-//! replicate a chosen stem on the synth (locally or via Gemini).
+//! replicate a chosen stem on the synth (locally or via the cloud AI).
 //!
 //! Modeled on `ai::chat_ui` — a Vizia `Model` owning `Arc<SineParams>`, a shared
 //! `tokio::Runtime`, and a cancel flag, doing heavy work (decode/separate/match)
@@ -16,7 +16,7 @@ use crate::ai::llm::AiConfig;
 use super::decode::Clip;
 use super::playback::PreviewPlayer;
 use super::separate::{Engine, Stem};
-use super::{analyze, gemini, separate};
+use super::{analyze, cloud, separate};
 
 pub const AUDIO_COPY_STYLES: &str = r#"
     .ac-root {
@@ -136,11 +136,11 @@ pub enum AudioCopyEvent {
     StopPlayback,
     /// Replicate the stem locally (synchronous FFT analysis).
     MatchLocal(usize),
-    /// Replicate the stem via Gemini (async).
-    MatchGemini(usize),
-    /// Gemini match finished (summary or error).
+    /// Replicate the stem via the cloud AI (async).
+    MatchAi(usize),
+    /// Cloud match finished (summary or error).
     MatchDone(String),
-    /// Cancel the in-flight Gemini request.
+    /// Cancel the in-flight cloud request.
     CancelTask,
     /// Update the status line.
     Status(String),
@@ -274,7 +274,7 @@ impl Model for AudioCopyState {
                 self.status = format!("Matched \"{label}\" locally — see the other tabs.");
             }
 
-            AudioCopyEvent::MatchGemini(i) => {
+            AudioCopyEvent::MatchAi(i) => {
                 let Some(stem) = self.stems_full.get(*i).cloned() else {
                     return;
                 };
@@ -285,18 +285,18 @@ impl Model for AudioCopyState {
                 let cfg = AiConfig::load();
                 if cfg.api_key.trim().is_empty() {
                     self.status =
-                        "Set your Gemini API key in the AI ASSIST tab's settings (⚙) first."
+                        "Set your OpenRouter API key in the settings gear (⚙, top-right) first."
                             .to_string();
                     return;
                 }
                 self.busy = true;
-                self.status = format!("Asking Gemini to match \"{}\"…", stem.label);
+                self.status = format!("Asking the AI to match \"{}\"…", stem.label);
                 self.cancel.store(false, Ordering::Relaxed);
 
                 let params = self.params.clone();
                 let cancel = self.cancel.clone();
                 cx.spawn(move |proxy| {
-                    rt.block_on(gemini::match_gemini(proxy, &params, &cfg, &stem, cancel));
+                    rt.block_on(cloud::match_cloud(proxy, &params, &cfg, &stem, cancel));
                 });
             }
 
@@ -392,8 +392,8 @@ pub fn audio_copy_panel(cx: &mut Context, params: Arc<SineParams>, preview: Arc<
                     Button::new(cx, |cx| Label::new(cx, "Match (Local)"))
                         .on_press(move |cx| cx.emit(AudioCopyEvent::MatchLocal(index)))
                         .class("ac-smallbtn-primary");
-                    Button::new(cx, |cx| Label::new(cx, "Gemini"))
-                        .on_press(move |cx| cx.emit(AudioCopyEvent::MatchGemini(index)))
+                    Button::new(cx, |cx| Label::new(cx, "AI Match"))
+                        .on_press(move |cx| cx.emit(AudioCopyEvent::MatchAi(index)))
                         .class("ac-smallbtn");
                 })
                 .class("ac-stemrow");

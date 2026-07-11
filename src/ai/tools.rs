@@ -1,23 +1,28 @@
-//! Tool definitions exposed to the model (as Gemini `functionDeclarations`) and
-//! the in-plugin dispatcher that executes a tool call.
+//! Tool definitions exposed to the model (as OpenAI-style `tools`) and the
+//! in-plugin dispatcher that executes a tool call.
 
-use crate::ai::{bridge, preset};
 use crate::SineParams;
-use serde_json::{json, Value};
+use crate::ai::{bridge, preset};
+use serde_json::{Value, json};
 use vizia_plug::vizia::prelude::*;
 
 use super::chat_ui::ChatEvent;
 
-/// The tool schema sent to Gemini under `tools: [{ functionDeclarations: [...] }]`.
-pub fn gemini_tools() -> Value {
-    json!([{
-        "functionDeclarations": [
-            {
+/// The tool schema sent to OpenRouter under `tools: [{ type: "function", ... }]`
+/// (the OpenAI function-calling format).
+pub fn tool_schema() -> Value {
+    json!([
+        {
+            "type": "function",
+            "function": {
                 "name": "get_state",
                 "description": "Return the current value of every synth parameter as JSON. Call this first when asked to tweak or describe the current sound.",
                 "parameters": { "type": "object", "properties": {} }
-            },
-            {
+            }
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "set_parameter",
                 "description": concat!(
                     "Set one synth parameter. Call repeatedly to design a sound. Valid names and ranges:\n",
@@ -41,8 +46,11 @@ pub fn gemini_tools() -> Value {
                     },
                     "required": ["parameter", "value"]
                 }
-            },
-            {
+            }
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "save_preset",
                 "description": "Save the current sound as a named preset file on disk.",
                 "parameters": {
@@ -50,8 +58,11 @@ pub fn gemini_tools() -> Value {
                     "properties": { "name": { "type": "string", "description": "Preset name." } },
                     "required": ["name"]
                 }
-            },
-            {
+            }
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "load_preset",
                 "description": "Load a saved preset by name, applying all of its parameters.",
                 "parameters": {
@@ -59,14 +70,17 @@ pub fn gemini_tools() -> Value {
                     "properties": { "name": { "type": "string", "description": "Preset name (see list_presets)." } },
                     "required": ["name"]
                 }
-            },
-            {
+            }
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "list_presets",
                 "description": "List the names of all saved presets.",
                 "parameters": { "type": "object", "properties": {} }
             }
-        ]
-    }])
+        }
+    ])
 }
 
 /// Execute a single tool call in-plugin. Parameter writes are emitted as

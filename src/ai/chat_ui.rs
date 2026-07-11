@@ -1,13 +1,16 @@
-//! The "AI ASSIST" tab: a chat panel that drives the synth via the Gemini
+//! The "AI ASSIST" tab: a chat panel that drives the synth via the OpenRouter
 //! tool-calling loop in [`super::llm`]. Parameter writes reach the real
 //! `nih_plug` params through `RawParamEvent`s emitted from the background task.
+//!
+//! The API key / model live in the global settings overlay (the header gear);
+//! this panel loads the shared [`AiConfig`] from disk each time it sends.
 
 use crate::SineParams;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use vizia_plug::vizia::prelude::*;
 
-use super::llm::{AiConfig, AiModel};
+use super::llm::AiConfig;
 
 // NOTE: this `vizia_style` revision silently drops legacy spacing names like
 // `row-between`/`col-between`/`border-radius` (see editor.rs). Use `gap` for
@@ -97,31 +100,6 @@ pub const CHAT_STYLES: &str = r#"
         alignment: center;
     }
     .chat-stop:hover { background-color: #F43F5E; color: #0A0A0C; }
-
-    .settings-overlay {
-        position-type: absolute;
-        width: 100%;
-        height: 100%;
-        left: 0px;
-        top: 0px;
-        background-color: #0A0A0CF2;
-        padding: 16px;
-        gap: 8px;
-    }
-    .settings-label { color: #F8FAFC; font-size: 12px; font-weight: 700; }
-    .settings-sublabel { color: #94A3B8; font-size: 10px; font-weight: 600; }
-    .settings-models { gap: 6px; height: 26px; }
-    .model-btn {
-        background-color: #1C1C22;
-        border: 1px solid #2D2D34;
-        corner-radius: 4px;
-        color: #94A3B8;
-        font-size: 10px;
-        padding-left: 10px;
-        padding-right: 10px;
-        alignment: center;
-    }
-    .model-btn.selected { background-color: #6366F1; color: #F8FAFC; }
 "#;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Data)]
@@ -150,7 +128,8 @@ fn greeting() -> ChatMessage {
     ChatMessage {
         role: Role::Assistant,
         text: "Describe a sound and I'll dial it in — e.g. \"warm detuned pad\" — \
-               or ask me to save/load a preset. Set your API key in ⚙ first."
+               or ask me to save/load a preset. Set your OpenRouter API key in the \
+               settings gear (⚙, top-right) first."
             .to_string(),
     }
 }
@@ -165,9 +144,6 @@ pub enum ChatEvent {
     Stop,
     /// Reset the transcript to the opening message.
     Clear,
-    ToggleSettings,
-    SetApiKey(String),
-    SetModel(AiModel),
 }
 
 #[derive(Lens)]
@@ -176,10 +152,6 @@ pub struct ChatState {
     input: String,
     sending: bool,
     status: String,
-    is_settings_open: bool,
-    api_key: String,
-    model: AiModel,
-    temperature: f32,
     params: Arc<SineParams>,
     /// Shared async runtime, built once when the panel opens. Each send drives a
     /// request on it via `block_on` from a `cx.spawn` thread, instead of standing
@@ -190,34 +162,10 @@ pub struct ChatState {
     cancel: Arc<AtomicBool>,
 }
 
-impl ChatState {
-    fn persist(&self) {
-        let cfg = AiConfig {
-            api_key: self.api_key.clone(),
-            model: self.model,
-            temperature: self.temperature,
-        };
-        let _ = cfg.save();
-    }
-}
-
 impl Model for ChatState {
     fn event(&mut self, cx: &mut EventContext, event: &mut Event) {
         event.map(|ev: &ChatEvent, _meta| match ev {
             ChatEvent::EditInput(s) => self.input = s.clone(),
-
-            ChatEvent::ToggleSettings => self.is_settings_open = !self.is_settings_open,
-
-            ChatEvent::SetApiKey(k) => {
-                // Trim pasted whitespace/newlines so the saved key is usable as-is.
-                self.api_key = k.trim().to_string();
-                self.persist();
-            }
-
-            ChatEvent::SetModel(m) => {
-                self.model = *m;
-                self.persist();
-            }
 
             ChatEvent::Status(s) => self.status = s.clone(),
 
@@ -268,10 +216,13 @@ impl Model for ChatState {
                     text: text.clone(),
                 });
 
-                if self.api_key.trim().is_empty() {
+                // Pull the latest key/model from the shared settings on disk.
+                let cfg = AiConfig::load();
+                if cfg.api_key.trim().is_empty() {
                     self.messages.push(ChatMessage {
                         role: Role::Assistant,
-                        text: "Set your Gemini API key in settings (⚙) first.".to_string(),
+                        text: "Set your OpenRouter API key in the settings gear (⚙, top-right) first."
+                            .to_string(),
                     });
                     return;
                 }
@@ -291,11 +242,6 @@ impl Model for ChatState {
                 self.cancel.store(false, Ordering::Relaxed);
 
                 let params = self.params.clone();
-                let cfg = AiConfig {
-                    api_key: self.api_key.clone(),
-                    model: self.model,
-                    temperature: self.temperature,
-                };
                 let convo: Vec<(Role, String)> =
                     self.messages.iter().map(|m| (m.role, m.text.clone())).collect();
                 let cancel = self.cancel.clone();
@@ -312,17 +258,11 @@ impl Model for ChatState {
 
 /// Build the AI chat panel. `params` is the live parameter set the tools drive.
 pub fn chat_panel(cx: &mut Context, params: Arc<SineParams>) {
-    let cfg = AiConfig::load();
-
     ChatState {
         messages: vec![greeting()],
         input: String::new(),
         sending: false,
         status: String::new(),
-        is_settings_open: false,
-        api_key: cfg.api_key,
-        model: cfg.model,
-        temperature: cfg.temperature,
         params,
         runtime: tokio::runtime::Runtime::new().ok().map(Arc::new),
         cancel: Arc::new(AtomicBool::new(false)),
@@ -336,9 +276,6 @@ pub fn chat_panel(cx: &mut Context, params: Arc<SineParams>) {
                 .on_press(|cx| cx.emit(ChatEvent::Clear))
                 .class("chat-iconbtn")
                 .width(Pixels(44.0));
-            Button::new(cx, |cx| Label::new(cx, "⚙"))
-                .on_press(|cx| cx.emit(ChatEvent::ToggleSettings))
-                .class("chat-iconbtn");
         })
         .class("chat-header");
 
@@ -387,44 +324,6 @@ pub fn chat_panel(cx: &mut Context, params: Arc<SineParams>) {
             });
         })
         .class("chat-inputrow");
-
-        Binding::new(cx, ChatState::is_settings_open, |cx, open| {
-            if open.get(cx) {
-                settings_overlay(cx);
-            }
-        });
     })
     .class("chat-root");
-}
-
-fn settings_overlay(cx: &mut Context) {
-    VStack::new(cx, |cx| {
-        Label::new(cx, "AI SETTINGS").class("settings-label");
-
-        Label::new(cx, "Gemini API Key").class("settings-sublabel");
-        Textbox::new(cx, ChatState::api_key)
-            .class("chat-input")
-            .width(Stretch(1.0))
-            .on_edit(|cx, k| cx.emit(ChatEvent::SetApiKey(k)));
-
-        Label::new(cx, "Model").class("settings-sublabel");
-        HStack::new(cx, |cx| {
-            for m in [
-                AiModel::Gemini25Flash,
-                AiModel::Gemini25Pro,
-                AiModel::Gemini20Flash,
-            ] {
-                Button::new(cx, move |cx| Label::new(cx, m.label()))
-                    .on_press(move |cx| cx.emit(ChatEvent::SetModel(m)))
-                    .class("model-btn")
-                    .toggle_class("selected", ChatState::model.map(move |sel| *sel == m));
-            }
-        })
-        .class("settings-models");
-
-        Button::new(cx, |cx| Label::new(cx, "Done"))
-            .on_press(|cx| cx.emit(ChatEvent::ToggleSettings))
-            .class("chat-send");
-    })
-    .class("settings-overlay");
 }

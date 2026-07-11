@@ -21,7 +21,7 @@ dirs = "5"
 # --- Audio Copy tab ---
 # Decoding uploaded clips (wav/mp3/flac/ogg/aac), FFT for separation + analysis,
 # native file dialog, lock-free buffer hand-off to the audio thread, and base64
-# for the Gemini inline-audio request.
+# for the OpenRouter inline-audio request.
 # Keep symphonia's default features (wav/flac/ogg/vorbis/pcm/...) and add the
 # non-default codecs (mp3, aac/alac, mp4 container) for broad clip support.
 symphonia = { version = "0.5", features = ["mp3", "aac", "alac", "isomp4", "aiff"] }

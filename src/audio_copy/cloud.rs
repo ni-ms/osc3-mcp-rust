@@ -1,6 +1,11 @@
-//! Gemini "match": send an isolated stem as inline audio and let the model
-//! design a patch by calling `set_parameter`, reusing the AI tab's tool schema
-//! and in-plugin dispatcher.
+//! OpenRouter "AI Match": send an isolated stem as inline audio and let a
+//! (multimodal) model design a patch by calling `set_parameter`, reusing the AI
+//! tab's tool schema and in-plugin dispatcher.
+//!
+//! Audio is uploaded as an OpenAI-style `input_audio` content part, so the
+//! configured OpenRouter model must support audio input (e.g.
+//! `google/gemini-2.5-flash`). Tool-incapable or audio-incapable models will
+//! return an API error that surfaces in the status line.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -10,7 +15,7 @@ use serde_json::{Value, json};
 use vizia_plug::vizia::prelude::*;
 
 use crate::SineParams;
-use crate::ai::llm::AiConfig;
+use crate::ai::llm::{AiConfig, OPENROUTER_URL};
 use crate::ai::tools;
 
 use super::separate::Stem;
@@ -18,7 +23,7 @@ use super::ui::AudioCopyEvent;
 
 /// Tool-call rounds cap (mirrors the chat loop).
 const MAX_ROUNDS: usize = 6;
-/// Gemini prefers 16 kHz mono audio; resampling also shrinks the payload.
+/// 16 kHz mono keeps the upload small without hurting timbre recognition.
 const UPLOAD_SR: u32 = 16_000;
 
 fn system_prompt() -> &'static str {
@@ -33,9 +38,19 @@ fn system_prompt() -> &'static str {
     )
 }
 
-/// Run the Gemini match for `stem`. Always ends by emitting `MatchDone` so the UI
+/// OpenAI tool-call arguments arrive as a JSON *string*; parse it back to a
+/// `Value` (tolerating an already-parsed object or a missing/empty field).
+fn parse_arguments(raw: &Value) -> Value {
+    match raw {
+        Value::String(s) => serde_json::from_str(s).unwrap_or_else(|_| json!({})),
+        Value::Object(_) => raw.clone(),
+        _ => json!({}),
+    }
+}
+
+/// Run the AI match for `stem`. Always ends by emitting `MatchDone` so the UI
 /// clears its busy state.
-pub async fn match_gemini(
+pub async fn match_cloud(
     proxy: &mut ContextProxy,
     params: &SineParams,
     cfg: &AiConfig,
@@ -44,32 +59,32 @@ pub async fn match_gemini(
 ) {
     if cfg.api_key.trim().is_empty() {
         let _ = proxy.emit(AudioCopyEvent::MatchDone(
-            "Set your Gemini API key in the AI ASSIST tab's settings (⚙) first.".to_string(),
+            "Set your OpenRouter API key in the settings gear (⚙, top-right) first.".to_string(),
         ));
         return;
     }
 
+    let key = cfg.api_key.trim().to_string();
+    let model = cfg.model.trim().to_string();
+
     let wav = encode_wav_mono(&stem.samples, stem.sample_rate, UPLOAD_SR);
     let b64 = base64::engine::general_purpose::STANDARD.encode(&wav);
-
-    let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
-        cfg.model.api_name(),
-        cfg.api_key.trim()
-    );
 
     let prompt = format!(
         "Here is an isolated sound (label: \"{}\"). Recreate its timbre on the synth.",
         stem.label
     );
 
-    let mut contents: Vec<Value> = vec![json!({
-        "role": "user",
-        "parts": [
-            { "text": prompt },
-            { "inline_data": { "mime_type": "audio/wav", "data": b64 } }
-        ]
-    })];
+    let mut messages: Vec<Value> = vec![
+        json!({ "role": "system", "content": system_prompt() }),
+        json!({
+            "role": "user",
+            "content": [
+                { "type": "text", "text": prompt },
+                { "type": "input_audio", "input_audio": { "data": b64, "format": "wav" } }
+            ]
+        }),
+    ];
 
     let client = reqwest::Client::new();
 
@@ -79,13 +94,21 @@ pub async fn match_gemini(
         }
 
         let body = json!({
-            "system_instruction": { "parts": [{ "text": system_prompt() }] },
-            "contents": contents,
-            "tools": tools::gemini_tools(),
-            "generationConfig": { "temperature": cfg.temperature }
+            "model": model,
+            "messages": messages,
+            "tools": tools::tool_schema(),
+            "temperature": cfg.temperature,
         });
 
-        let resp = match client.post(&url).json(&body).send().await {
+        let resp = match client
+            .post(OPENROUTER_URL)
+            .bearer_auth(&key)
+            .header("HTTP-Referer", "https://github.com/osc3-mcp-rust")
+            .header("X-Title", "TripleOscSynth")
+            .json(&body)
+            .send()
+            .await
+        {
             Ok(r) => r,
             Err(e) => {
                 let _ = proxy.emit(AudioCopyEvent::MatchDone(format!("Network error: {e}")));
@@ -111,20 +134,11 @@ pub async fn match_gemini(
             }
         };
 
-        let content = payload["candidates"][0]["content"].clone();
-        let parts = content["parts"].as_array().cloned().unwrap_or_default();
+        let message = payload["choices"][0]["message"].clone();
+        let tool_calls = message["tool_calls"].as_array().cloned().unwrap_or_default();
+        let text = message["content"].as_str().unwrap_or("").to_string();
 
-        let mut calls: Vec<Value> = Vec::new();
-        let mut text = String::new();
-        for part in &parts {
-            if let Some(fc) = part.get("functionCall") {
-                calls.push(fc.clone());
-            } else if let Some(t) = part.get("text").and_then(|t| t.as_str()) {
-                text.push_str(t);
-            }
-        }
-
-        if calls.is_empty() {
+        if tool_calls.is_empty() {
             let reply = if text.trim().is_empty() {
                 format!("Matched \"{}\".", stem.label)
             } else {
@@ -138,18 +152,19 @@ pub async fn match_gemini(
             return;
         }
 
-        contents.push(content);
+        messages.push(message);
 
-        let mut response_parts = Vec::with_capacity(calls.len());
-        for fc in &calls {
-            let name = fc.get("name").and_then(|n| n.as_str()).unwrap_or_default();
-            let args = fc.get("args").cloned().unwrap_or_else(|| json!({}));
+        for call in &tool_calls {
+            let id = call["id"].as_str().unwrap_or_default();
+            let name = call["function"]["name"].as_str().unwrap_or_default();
+            let args = parse_arguments(&call["function"]["arguments"]);
             let result = tools::dispatch(proxy, params, name, &args);
-            response_parts.push(json!({
-                "functionResponse": { "name": name, "response": { "result": result } }
+            messages.push(json!({
+                "role": "tool",
+                "tool_call_id": id,
+                "content": result.to_string(),
             }));
         }
-        contents.push(json!({ "role": "user", "parts": response_parts }));
     }
 
     let _ = proxy.emit(AudioCopyEvent::MatchDone(

@@ -1,3 +1,4 @@
+use super::settings::{self, SETTINGS_CSS};
 use super::{Meter, ParamKnob, PeakMeter, TabDefinition, TabSwitcher};
 use crate::{FilterMode, OscillatorParams, SineParams, Waveform};
 use nih_plug::prelude::{Editor, EnumParam, Param};
@@ -545,11 +546,16 @@ pub(crate) fn create(
         cx.add_stylesheet(super::tab_switcher::TABSWITCHER_THEME).ok();
         cx.add_stylesheet(crate::ai::chat_ui::CHAT_STYLES).ok();
         cx.add_stylesheet(crate::audio_copy::AUDIO_COPY_STYLES).ok();
+        cx.add_stylesheet(SETTINGS_CSS).ok();
 
         Data {
             params: params.clone(),
         }
         .build(cx);
+
+        // Shared AI settings (API key / model), reachable from the header gear
+        // and loaded on demand by the AI Assist and Audio Copy features.
+        settings::build_settings_model(cx);
 
         // The AI tab's tools drive the live parameters directly.
         let ai_params = params.clone();
@@ -574,6 +580,9 @@ pub(crate) fn create(
                 .class("meter-stack");
 
                 Label::new(cx, "v1.0.0").class("app-version");
+
+                // Global settings gear (OpenRouter key / model).
+                settings::settings_button(cx);
             })
             .class("header");
 
@@ -725,6 +734,9 @@ pub(crate) fn create(
             })
             .width(Stretch(1.0))
             .height(Stretch(1.0));
+
+            // Modal settings overlay; floats above the tabs while open.
+            settings::settings_overlay(cx);
         })
         .class("root");
     })

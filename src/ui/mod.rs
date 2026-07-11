@@ -12,6 +12,7 @@
 pub mod editor;
 pub mod knob;
 pub mod meter;
+pub mod settings;
 pub mod tab_switcher;
 
 pub use knob::ParamKnob;

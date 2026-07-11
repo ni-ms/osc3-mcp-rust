@@ -10,7 +10,7 @@ A polyphonic triple-oscillator synthesizer plugin written in Rust on top of
 plugins and as a **standalone application**. Edition is Rust 2024; `nih_plug`/`vizia_plug`/
 `rmcp` are pulled from git, so the toolchain must be recent.
 
-There is an in-progress AI-assist feature (Gemini via MCP-style tool calls) — see "AI layer
+There is an in-progress AI-assist feature (OpenRouter via MCP-style tool calls) — see "AI layer
 is currently inert" below before touching it.
 
 ## Commands
@@ -86,16 +86,19 @@ Each widget module currently injects its own CSS via `cx.add_stylesheet` and the
 large inline `UI_STYLESHEET` const; styling is CSS-string driven, not Rust-typed.
 
 **AI layer** (`ai/`): a working "AI ASSIST" tab — an in-plugin chat that drives the synth
-via the Gemini tool-calling API. The old `tokio::RwLock` parameter *mirror* is gone; AI
-parameter writes now go through the **real `SineParams`** using the same `RawParamEvent`
-idiom as the GUI knobs, so the host sees automation and the audio thread reads atomics —
-no locks on the audio thread. Modules:
+via the OpenRouter tool-calling API (OpenAI-compatible `/chat/completions`). The old
+`tokio::RwLock` parameter *mirror* is gone; AI parameter writes now go through the **real
+`SineParams`** using the same `RawParamEvent` idiom as the GUI knobs, so the host sees
+automation and the audio thread reads atomics — no locks on the audio thread. The API
+key/model live in the **global settings overlay** (`ui/settings.rs`, the header ⚙), shared
+with the Audio Copy tab; both load `AiConfig` from disk on demand. Modules:
 - `chat_ui.rs` — `ChatState` model + `chat_panel` view; owns `Arc<SineParams>` and a shared
-  `tokio::Runtime`. `ChatEvent::Send` spawns the request via `cx.spawn`.
-- `llm.rs` — `AiConfig` (key/model/temperature, persisted to
+  `tokio::Runtime`. `ChatEvent::Send` loads `AiConfig` and spawns the request via `cx.spawn`.
+- `llm.rs` — `AiConfig` (key/model slug/temperature, persisted to
   `<config-dir>/TripleOscSynth/config.json`, **not** host state) + the multi-turn agentic
-  loop `run_conversation` (capped at `MAX_ROUNDS`).
-- `tools.rs` — Gemini `functionDeclarations` (`get_state`, `set_parameter`,
+  loop `run_conversation` (capped at `MAX_ROUNDS`). `model` is an OpenRouter slug like
+  `openai/gpt-4o`; `DEFAULT_MODEL`/`SUGGESTED_MODELS` live here too.
+- `tools.rs` — OpenAI-style `tools` schema via `tool_schema()` (`get_state`, `set_parameter`,
   `save`/`load`/`list_presets`) + the in-plugin `dispatch`.
 - `bridge.rs` — maps a tool's (name, value) to a real param write, emitted as a
   `RawParamEvent` Begin/Set/End triple via a caller-supplied `emit` closure (the `cx.spawn`

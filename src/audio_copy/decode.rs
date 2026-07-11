@@ -14,8 +14,8 @@ use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 
-/// Hard cap on decoded length. Keeps separation/analysis bounded and the Gemini
-/// payload small; longer clips are truncated.
+/// Hard cap on decoded length. Keeps separation/analysis bounded and the AI
+/// audio-upload payload small; longer clips are truncated.
 const MAX_SECONDS: f32 = 30.0;
 
 /// A decoded, downmixed-to-mono audio clip.

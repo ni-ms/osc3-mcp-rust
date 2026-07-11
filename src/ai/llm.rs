@@ -1,11 +1,15 @@
-//! Gemini configuration and the multi-turn (agentic) tool-calling loop.
+//! OpenRouter configuration and the multi-turn (agentic) tool-calling loop.
+//!
+//! OpenRouter exposes an OpenAI-compatible `/chat/completions` endpoint, so the
+//! request/response shape here is the standard `messages` + `tools` format with
+//! a `Bearer` API key, not Gemini's `contents`/`functionCall` schema.
 
-use crate::ai::{preset, tools};
 use crate::SineParams;
+use crate::ai::tools;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-use std::sync::atomic::{AtomicBool, Ordering};
+use serde_json::{Value, json};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use vizia_plug::vizia::prelude::*;
 
 use super::chat_ui::{ChatEvent, Role};
@@ -13,29 +17,26 @@ use super::chat_ui::{ChatEvent, Role};
 /// Hard cap on tool-call rounds to avoid runaway chains.
 const MAX_ROUNDS: usize = 8;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Data)]
-pub enum AiModel {
-    Gemini25Flash,
-    Gemini25Pro,
-    Gemini20Flash,
+/// OpenRouter's OpenAI-compatible chat-completions endpoint.
+pub const OPENROUTER_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
+
+/// Default model slug — cheap, fast, and supports both tool calls and audio
+/// input (the latter is needed by the Audio Copy "AI Match").
+pub const DEFAULT_MODEL: &str = "google/gemini-2.5-flash";
+
+/// Quick-pick model slugs surfaced in settings. Any OpenRouter slug can be typed
+/// in by hand; these are just shortcuts. Only tool-call-capable models work.
+pub const SUGGESTED_MODELS: &[(&str, &str)] = &[
+    ("google/gemini-2.5-flash", "Gemini Flash"),
+    ("openai/gpt-4o-mini", "GPT-4o mini"),
+    ("anthropic/claude-3.5-sonnet", "Claude Sonnet"),
+];
+
+fn default_model() -> String {
+    DEFAULT_MODEL.to_string()
 }
-
-impl AiModel {
-    pub fn api_name(&self) -> &'static str {
-        match self {
-            AiModel::Gemini25Flash => "gemini-2.5-flash",
-            AiModel::Gemini25Pro => "gemini-2.5-pro",
-            AiModel::Gemini20Flash => "gemini-2.0-flash",
-        }
-    }
-
-    pub fn label(&self) -> &'static str {
-        match self {
-            AiModel::Gemini25Flash => "2.5 Flash",
-            AiModel::Gemini25Pro => "2.5 Pro",
-            AiModel::Gemini20Flash => "2.0 Flash",
-        }
-    }
+fn default_temperature() -> f32 {
+    0.7
 }
 
 /// AI settings, persisted to `<config-dir>/TripleOscSynth/config.json` rather
@@ -44,7 +45,10 @@ impl AiModel {
 pub struct AiConfig {
     #[serde(default)]
     pub api_key: String,
-    pub model: AiModel,
+    /// OpenRouter model slug, e.g. `openai/gpt-4o`.
+    #[serde(default = "default_model")]
+    pub model: String,
+    #[serde(default = "default_temperature")]
     pub temperature: f32,
 }
 
@@ -52,15 +56,15 @@ impl Default for AiConfig {
     fn default() -> Self {
         Self {
             api_key: String::new(),
-            model: AiModel::Gemini25Flash,
-            temperature: 0.7,
+            model: default_model(),
+            temperature: default_temperature(),
         }
     }
 }
 
 impl AiConfig {
     fn path() -> std::path::PathBuf {
-        preset::app_dir().join("config.json")
+        crate::ai::preset::app_dir().join("config.json")
     }
 
     /// Load config. If the file is missing, write out a default one so users
@@ -69,7 +73,16 @@ impl AiConfig {
     /// a hand-edit with a typo isn't silently clobbered.
     pub fn load() -> Self {
         match std::fs::read_to_string(Self::path()) {
-            Ok(text) => serde_json::from_str(&text).unwrap_or_default(),
+            Ok(text) => {
+                let mut cfg: Self = serde_json::from_str(&text).unwrap_or_default();
+                // An OpenRouter slug always contains a '/'. A bare value (e.g. a
+                // leftover Gemini enum like "Gemini25Flash" from an older config)
+                // would 404, so fall back to the default instead.
+                if !cfg.model.contains('/') {
+                    cfg.model = default_model();
+                }
+                cfg
+            }
             Err(_) => {
                 let cfg = Self::default();
                 let _ = cfg.save();
@@ -79,7 +92,7 @@ impl AiConfig {
     }
 
     pub fn save(&self) -> Result<(), String> {
-        let dir = preset::app_dir();
+        let dir = crate::ai::preset::app_dir();
         std::fs::create_dir_all(&dir).map_err(|e| format!("create config dir: {e}"))?;
         let json = serde_json::to_string_pretty(self).map_err(|e| format!("serialize: {e}"))?;
         std::fs::write(Self::path(), json).map_err(|e| format!("write config: {e}"))
@@ -102,7 +115,17 @@ fn system_prompt() -> &'static str {
 fn role_str(role: Role) -> &'static str {
     match role {
         Role::User => "user",
-        _ => "model",
+        _ => "assistant",
+    }
+}
+
+/// OpenAI tool-call arguments arrive as a JSON *string*; parse it back to a
+/// `Value` (tolerating an already-parsed object or a missing/empty field).
+fn parse_arguments(raw: &Value) -> Value {
+    match raw {
+        Value::String(s) => serde_json::from_str(s).unwrap_or_else(|_| json!({})),
+        Value::Object(_) => raw.clone(),
+        _ => json!({}),
     }
 }
 
@@ -116,20 +139,16 @@ pub async fn run_conversation(
     convo: Vec<(Role, String)>,
     cancel: Arc<AtomicBool>,
 ) {
-    // Keys copied from AI Studio often carry a trailing newline or surrounding
-    // whitespace; left in the URL that yields an opaque API error, so trim it.
-    let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
-        cfg.model.api_name(),
-        cfg.api_key.trim()
-    );
+    let key = cfg.api_key.trim().to_string();
+    let model = cfg.model.trim().to_string();
 
-    // Seed the conversation with the visible chat history (skip tool log lines).
-    let mut contents: Vec<Value> = convo
-        .iter()
-        .filter(|(role, _)| *role != Role::Tool)
-        .map(|(role, text)| json!({ "role": role_str(*role), "parts": [{ "text": text }] }))
-        .collect();
+    // Seed the conversation: system prompt + the visible chat history (skip the
+    // tool log lines, which aren't part of the model-visible turn structure).
+    let mut messages: Vec<Value> = Vec::with_capacity(convo.len() + 1);
+    messages.push(json!({ "role": "system", "content": system_prompt() }));
+    for (role, text) in convo.iter().filter(|(r, _)| *r != Role::Tool) {
+        messages.push(json!({ "role": role_str(*role), "content": text }));
+    }
 
     let client = reqwest::Client::new();
 
@@ -141,13 +160,22 @@ pub async fn run_conversation(
         }
 
         let body = json!({
-            "system_instruction": { "parts": [{ "text": system_prompt() }] },
-            "contents": contents,
-            "tools": tools::gemini_tools(),
-            "generationConfig": { "temperature": cfg.temperature }
+            "model": model,
+            "messages": messages,
+            "tools": tools::tool_schema(),
+            "temperature": cfg.temperature,
         });
 
-        let resp = match client.post(&url).json(&body).send().await {
+        let resp = match client
+            .post(OPENROUTER_URL)
+            .bearer_auth(&key)
+            // Optional attribution headers OpenRouter recommends for ranking.
+            .header("HTTP-Referer", "https://github.com/osc3-mcp-rust")
+            .header("X-Title", "TripleOscSynth")
+            .json(&body)
+            .send()
+            .await
+        {
             Ok(r) => r,
             Err(e) => {
                 let _ = proxy.emit(ChatEvent::Receive(format!("Network error: {e}")));
@@ -159,16 +187,19 @@ pub async fn run_conversation(
             let code = resp.status();
             let detail = resp.text().await.unwrap_or_default();
             let detail = detail.chars().take(300).collect::<String>();
-            // 429 is a rate-limit/quota response, not a config error — say so
-            // plainly so it isn't mistaken for a bad key.
-            let msg = if code.as_u16() == 429 {
-                format!(
-                    "Rate limited (429): you've hit Gemini's per-minute or daily \
-                     quota. Wait a minute and retry, switch to a lighter model \
-                     (2.0 Flash), or enable billing on the API key's project.\n\n{detail}"
-                )
-            } else {
-                format!("API error {code}: {detail}")
+            let msg = match code.as_u16() {
+                401 => format!(
+                    "Unauthorized (401): check your OpenRouter API key in settings (⚙).\n\n{detail}"
+                ),
+                402 => format!(
+                    "Payment required (402): this OpenRouter model needs credits on \
+                     your account, or pick a free/cheaper model in settings.\n\n{detail}"
+                ),
+                429 => format!(
+                    "Rate limited (429): OpenRouter is throttling this key or model. \
+                     Wait a moment and retry, or switch models in settings.\n\n{detail}"
+                ),
+                _ => format!("API error {code}: {detail}"),
             };
             let _ = proxy.emit(ChatEvent::Receive(msg));
             return;
@@ -182,20 +213,11 @@ pub async fn run_conversation(
             }
         };
 
-        let content = payload["candidates"][0]["content"].clone();
-        let parts = content["parts"].as_array().cloned().unwrap_or_default();
+        let message = payload["choices"][0]["message"].clone();
+        let tool_calls = message["tool_calls"].as_array().cloned().unwrap_or_default();
+        let text = message["content"].as_str().unwrap_or("").to_string();
 
-        let mut calls: Vec<Value> = Vec::new();
-        let mut text = String::new();
-        for part in &parts {
-            if let Some(fc) = part.get("functionCall") {
-                calls.push(fc.clone());
-            } else if let Some(t) = part.get("text").and_then(|t| t.as_str()) {
-                text.push_str(t);
-            }
-        }
-
-        if calls.is_empty() {
+        if tool_calls.is_empty() {
             let reply = if text.trim().is_empty() {
                 "Done.".to_string()
             } else {
@@ -211,19 +233,21 @@ pub async fn run_conversation(
             return;
         }
 
-        // Echo the model's tool-call turn, then append our results.
-        contents.push(content);
+        // Echo the assistant's tool-call turn verbatim, then append one tool
+        // result message per call (matched back by tool_call_id).
+        messages.push(message);
 
-        let mut response_parts = Vec::with_capacity(calls.len());
-        for fc in &calls {
-            let name = fc.get("name").and_then(|n| n.as_str()).unwrap_or_default();
-            let args = fc.get("args").cloned().unwrap_or_else(|| json!({}));
+        for call in &tool_calls {
+            let id = call["id"].as_str().unwrap_or_default();
+            let name = call["function"]["name"].as_str().unwrap_or_default();
+            let args = parse_arguments(&call["function"]["arguments"]);
             let result = tools::dispatch(proxy, params, name, &args);
-            response_parts.push(json!({
-                "functionResponse": { "name": name, "response": { "result": result } }
+            messages.push(json!({
+                "role": "tool",
+                "tool_call_id": id,
+                "content": result.to_string(),
             }));
         }
-        contents.push(json!({ "role": "user", "parts": response_parts }));
     }
 
     let _ = proxy.emit(ChatEvent::Receive(
