@@ -216,13 +216,12 @@ impl Model for ChatState {
                     text: text.clone(),
                 });
 
-                // Pull the latest key/model from the shared settings on disk.
+                // Pull the latest provider/key/model from the shared settings on disk.
                 let cfg = AiConfig::load();
-                if cfg.api_key.trim().is_empty() {
+                if let Some(err) = cfg.readiness_error() {
                     self.messages.push(ChatMessage {
                         role: Role::Assistant,
-                        text: "Set your OpenRouter API key in the settings gear (⚙, top-right) first."
-                            .to_string(),
+                        text: err,
                     });
                     return;
                 }

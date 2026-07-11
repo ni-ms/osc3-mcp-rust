@@ -32,8 +32,42 @@ pub const SUGGESTED_MODELS: &[(&str, &str)] = &[
     ("anthropic/claude-3.5-sonnet", "Claude Sonnet"),
 ];
 
+/// Default base URL for a local [Ollama](https://ollama.com) server. Ollama
+/// exposes an OpenAI-compatible `/v1/chat/completions` endpoint, so the same
+/// request/response code path works once the URL and auth are swapped.
+pub const DEFAULT_OLLAMA_URL: &str = "http://localhost:11434";
+
+/// Default local model. Must be pulled first (`ollama pull llama3.1`).
+pub const DEFAULT_OLLAMA_MODEL: &str = "llama3.1";
+
+/// Quick-pick local models. Only **tool-calling capable** models work with the
+/// agentic loop; these are common ones. Pull them with `ollama pull <name>`.
+pub const SUGGESTED_OLLAMA_MODELS: &[(&str, &str)] = &[
+    ("llama3.1", "Llama 3.1"),
+    ("qwen2.5", "Qwen 2.5"),
+    ("mistral-nemo", "Mistral Nemo"),
+];
+
+/// Which backend the AI features talk to. Both speak the OpenAI-compatible
+/// chat-completions shape, so only the endpoint URL and auth differ.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Data)]
+#[serde(rename_all = "snake_case")]
+pub enum AiProvider {
+    /// Hosted gateway at [openrouter.ai](https://openrouter.ai); needs an API key.
+    #[default]
+    OpenRouter,
+    /// Local server; no key, model runs on the user's machine.
+    Ollama,
+}
+
 fn default_model() -> String {
     DEFAULT_MODEL.to_string()
+}
+fn default_ollama_url() -> String {
+    DEFAULT_OLLAMA_URL.to_string()
+}
+fn default_ollama_model() -> String {
+    DEFAULT_OLLAMA_MODEL.to_string()
 }
 fn default_temperature() -> f32 {
     0.7
@@ -43,11 +77,21 @@ fn default_temperature() -> f32 {
 /// than host/project state (so the API key is not embedded in shared projects).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AiConfig {
+    /// Active backend. The `ollama_*` fields are used only when this is
+    /// [`AiProvider::Ollama`]; `api_key`/`model` only for OpenRouter.
+    #[serde(default)]
+    pub provider: AiProvider,
     #[serde(default)]
     pub api_key: String,
     /// OpenRouter model slug, e.g. `openai/gpt-4o`.
     #[serde(default = "default_model")]
     pub model: String,
+    /// Base URL of the local Ollama server (no trailing `/v1/...`).
+    #[serde(default = "default_ollama_url")]
+    pub ollama_url: String,
+    /// Local model name, e.g. `llama3.1`.
+    #[serde(default = "default_ollama_model")]
+    pub ollama_model: String,
     #[serde(default = "default_temperature")]
     pub temperature: f32,
 }
@@ -55,8 +99,11 @@ pub struct AiConfig {
 impl Default for AiConfig {
     fn default() -> Self {
         Self {
+            provider: AiProvider::default(),
             api_key: String::new(),
             model: default_model(),
+            ollama_url: default_ollama_url(),
+            ollama_model: default_ollama_model(),
             temperature: default_temperature(),
         }
     }
@@ -96,6 +143,66 @@ impl AiConfig {
         std::fs::create_dir_all(&dir).map_err(|e| format!("create config dir: {e}"))?;
         let json = serde_json::to_string_pretty(self).map_err(|e| format!("serialize: {e}"))?;
         std::fs::write(Self::path(), json).map_err(|e| format!("write config: {e}"))
+    }
+
+    /// The chat-completions URL for the active provider. Ollama's local server
+    /// mirrors OpenRouter's OpenAI-compatible route under `<base>/v1/...`.
+    pub fn chat_endpoint(&self) -> String {
+        match self.provider {
+            AiProvider::OpenRouter => OPENROUTER_URL.to_string(),
+            AiProvider::Ollama => {
+                let base = self.ollama_url.trim().trim_end_matches('/');
+                let base = if base.is_empty() {
+                    DEFAULT_OLLAMA_URL
+                } else {
+                    base
+                };
+                format!("{base}/v1/chat/completions")
+            }
+        }
+    }
+
+    /// The model name to send in the request body for the active provider.
+    pub fn request_model(&self) -> String {
+        match self.provider {
+            AiProvider::OpenRouter => self.model.trim().to_string(),
+            AiProvider::Ollama => self.ollama_model.trim().to_string(),
+        }
+    }
+
+    /// `Some(message)` if the active provider isn't usable yet (missing key /
+    /// model), suitable for showing to the user; `None` when ready to send.
+    pub fn readiness_error(&self) -> Option<String> {
+        match self.provider {
+            AiProvider::OpenRouter if self.api_key.trim().is_empty() => Some(
+                "Set your OpenRouter API key in the settings gear (⚙, top-right) first.".to_string(),
+            ),
+            AiProvider::Ollama if self.ollama_model.trim().is_empty() => Some(
+                "Set an Ollama model in the settings gear (⚙, top-right). Make sure Ollama is \
+                 running (`ollama serve`) and the model is pulled (`ollama pull <model>`)."
+                    .to_string(),
+            ),
+            _ => None,
+        }
+    }
+
+    /// Build a POST request to the active provider's chat endpoint with `body`.
+    /// OpenRouter gets a `Bearer` key + attribution headers; Ollama needs no
+    /// auth (the headers are harmless and ignored by it).
+    pub fn build_chat_request(
+        &self,
+        client: &reqwest::Client,
+        body: &Value,
+    ) -> reqwest::RequestBuilder {
+        let mut req = client
+            .post(self.chat_endpoint())
+            .header("HTTP-Referer", "https://github.com/osc3-mcp-rust")
+            .header("X-Title", "TripleOscSynth")
+            .json(body);
+        if matches!(self.provider, AiProvider::OpenRouter) {
+            req = req.bearer_auth(self.api_key.trim());
+        }
+        req
     }
 }
 
@@ -139,8 +246,7 @@ pub async fn run_conversation(
     convo: Vec<(Role, String)>,
     cancel: Arc<AtomicBool>,
 ) {
-    let key = cfg.api_key.trim().to_string();
-    let model = cfg.model.trim().to_string();
+    let model = cfg.request_model();
 
     // Seed the conversation: system prompt + the visible chat history (skip the
     // tool log lines, which aren't part of the model-visible turn structure).
@@ -166,16 +272,7 @@ pub async fn run_conversation(
             "temperature": cfg.temperature,
         });
 
-        let resp = match client
-            .post(OPENROUTER_URL)
-            .bearer_auth(&key)
-            // Optional attribution headers OpenRouter recommends for ranking.
-            .header("HTTP-Referer", "https://github.com/osc3-mcp-rust")
-            .header("X-Title", "TripleOscSynth")
-            .json(&body)
-            .send()
-            .await
-        {
+        let resp = match cfg.build_chat_request(&client, &body).send().await {
             Ok(r) => r,
             Err(e) => {
                 let _ = proxy.emit(ChatEvent::Receive(format!("Network error: {e}")));

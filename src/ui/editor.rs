@@ -579,7 +579,7 @@ pub(crate) fn create(
                 })
                 .class("meter-stack");
 
-                Label::new(cx, "v1.0.0").class("app-version");
+                Label::new(cx, concat!("v", env!("CARGO_PKG_VERSION"))).class("app-version");
 
                 // Global settings gear (OpenRouter key / model).
                 settings::settings_button(cx);

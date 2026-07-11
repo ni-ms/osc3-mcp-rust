@@ -29,17 +29,32 @@ to the path above and fill in your key. Format:
 
 ```json
 {
+  "provider": "open_router",
   "api_key": "PASTE_YOUR_OPENROUTER_KEY_HERE",
   "model": "google/gemini-2.5-flash",
+  "ollama_url": "http://localhost:11434",
+  "ollama_model": "llama3.1",
   "temperature": 0.7
 }
 ```
 
-- Create a key at [openrouter.ai/keys](https://openrouter.ai/keys).
-- `model` is any OpenRouter model slug, e.g. `openai/gpt-4o`,
-  `anthropic/claude-3.5-sonnet`, or the default `google/gemini-2.5-flash`. The
-  model must support **tool calling**; the Audio Copy "AI Match" additionally
-  needs **audio input** (the default does both).
+The settings overlay (⚙) has three left-hand tabs — **AI**, **Color Scheme**
+(placeholder), and **About** — and the AI tab lets you pick the backend with a
+radio toggle:
+
+- **OpenRouter** (`"provider": "open_router"`) — the hosted cloud gateway.
+  - Create a key at [openrouter.ai/keys](https://openrouter.ai/keys).
+  - `model` is any OpenRouter slug, e.g. `openai/gpt-4o`,
+    `anthropic/claude-3.5-sonnet`, or the default `google/gemini-2.5-flash`.
+- **Ollama** (`"provider": "ollama"`) — a **local** server, no API key or
+  network needed. Install [Ollama](https://ollama.com), run `ollama serve`, and
+  `ollama pull <model>`. `ollama_url` defaults to `http://localhost:11434`;
+  `ollama_model` is the local model name (e.g. `llama3.1`).
+
+In both cases the model must support **tool calling**; the Audio Copy "AI Match"
+additionally needs **audio input** (the OpenRouter default does both — most
+local Ollama models do not, so Audio Copy is best used with OpenRouter).
+
 - Never commit a real key. Treat the file as a secret.
 
 Todo:

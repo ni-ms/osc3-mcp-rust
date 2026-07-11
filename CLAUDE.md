@@ -86,18 +86,24 @@ Each widget module currently injects its own CSS via `cx.add_stylesheet` and the
 large inline `UI_STYLESHEET` const; styling is CSS-string driven, not Rust-typed.
 
 **AI layer** (`ai/`): a working "AI ASSIST" tab — an in-plugin chat that drives the synth
-via the OpenRouter tool-calling API (OpenAI-compatible `/chat/completions`). The old
+via a tool-calling API (OpenAI-compatible `/chat/completions`). Two backends are supported,
+selected by `AiConfig::provider` (`AiProvider::{OpenRouter, Ollama}`): the hosted **OpenRouter**
+gateway (needs an API key) and a **local Ollama** server (`http://localhost:11434/v1/...`, no
+key). Both speak the same request/response shape, so only the endpoint URL and auth differ —
+`AiConfig::{chat_endpoint, request_model, build_chat_request, readiness_error}` encapsulate the
+branch and are shared by `llm::run_conversation` and `audio_copy::cloud`. The old
 `tokio::RwLock` parameter *mirror* is gone; AI parameter writes now go through the **real
 `SineParams`** using the same `RawParamEvent` idiom as the GUI knobs, so the host sees
-automation and the audio thread reads atomics — no locks on the audio thread. The API
-key/model live in the **global settings overlay** (`ui/settings.rs`, the header ⚙), shared
-with the Audio Copy tab; both load `AiConfig` from disk on demand. Modules:
+automation and the audio thread reads atomics — no locks on the audio thread. The provider/
+key/model live in the **global settings overlay** (`ui/settings.rs`, the header ⚙, a left-tab
+layout: AI / Color Scheme / About), shared with the Audio Copy tab; both load `AiConfig` from
+disk on demand. Modules:
 - `chat_ui.rs` — `ChatState` model + `chat_panel` view; owns `Arc<SineParams>` and a shared
   `tokio::Runtime`. `ChatEvent::Send` loads `AiConfig` and spawns the request via `cx.spawn`.
-- `llm.rs` — `AiConfig` (key/model slug/temperature, persisted to
-  `<config-dir>/TripleOscSynth/config.json`, **not** host state) + the multi-turn agentic
-  loop `run_conversation` (capped at `MAX_ROUNDS`). `model` is an OpenRouter slug like
-  `openai/gpt-4o`; `DEFAULT_MODEL`/`SUGGESTED_MODELS` live here too.
+- `llm.rs` — `AiConfig` (provider + OpenRouter key/slug + Ollama url/model + temperature,
+  persisted to `<config-dir>/TripleOscSynth/config.json`, **not** host state) + the multi-turn
+  agentic loop `run_conversation` (capped at `MAX_ROUNDS`). `DEFAULT_MODEL`/`SUGGESTED_MODELS`
+  (OpenRouter) and `DEFAULT_OLLAMA_MODEL`/`SUGGESTED_OLLAMA_MODELS` live here too.
 - `tools.rs` — OpenAI-style `tools` schema via `tool_schema()` (`get_state`, `set_parameter`,
   `save`/`load`/`list_presets`) + the in-plugin `dispatch`.
 - `bridge.rs` — maps a tool's (name, value) to a real param write, emitted as a

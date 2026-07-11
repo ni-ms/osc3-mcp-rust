@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 use vizia_plug::vizia::prelude::*;
 
 use crate::SineParams;
-use crate::ai::llm::{AiConfig, OPENROUTER_URL};
+use crate::ai::llm::AiConfig;
 use crate::ai::tools;
 
 use super::separate::Stem;
@@ -57,15 +57,12 @@ pub async fn match_cloud(
     stem: &Stem,
     cancel: Arc<AtomicBool>,
 ) {
-    if cfg.api_key.trim().is_empty() {
-        let _ = proxy.emit(AudioCopyEvent::MatchDone(
-            "Set your OpenRouter API key in the settings gear (⚙, top-right) first.".to_string(),
-        ));
+    if let Some(err) = cfg.readiness_error() {
+        let _ = proxy.emit(AudioCopyEvent::MatchDone(err));
         return;
     }
 
-    let key = cfg.api_key.trim().to_string();
-    let model = cfg.model.trim().to_string();
+    let model = cfg.request_model();
 
     let wav = encode_wav_mono(&stem.samples, stem.sample_rate, UPLOAD_SR);
     let b64 = base64::engine::general_purpose::STANDARD.encode(&wav);
@@ -100,15 +97,7 @@ pub async fn match_cloud(
             "temperature": cfg.temperature,
         });
 
-        let resp = match client
-            .post(OPENROUTER_URL)
-            .bearer_auth(&key)
-            .header("HTTP-Referer", "https://github.com/osc3-mcp-rust")
-            .header("X-Title", "TripleOscSynth")
-            .json(&body)
-            .send()
-            .await
-        {
+        let resp = match cfg.build_chat_request(&client, &body).send().await {
             Ok(r) => r,
             Err(e) => {
                 let _ = proxy.emit(AudioCopyEvent::MatchDone(format!("Network error: {e}")));
